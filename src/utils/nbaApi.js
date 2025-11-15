@@ -175,7 +175,32 @@ export async function fetchTeamPlayers(teamAbbreviation) {
   }
 }
 
-// Fetch season averages for a player (available on free tier)
+// Fetch actual game-by-game stats for a player
+async function fetchPlayerGameStats(playerId, gamesCount = 10) {
+  try {
+    const currentSeason = 2024; // 2024-2025 season
+
+    // Get player's recent game stats using the /stats endpoint
+    const data = await fetchFromAPI(
+      `/stats?seasons[]=${currentSeason}&player_ids[]=${playerId}&per_page=${gamesCount}`
+    );
+
+    if (!data.data || data.data.length === 0) {
+      return null;
+    }
+
+    // Stats are returned with game references
+    return data.data;
+  } catch (error) {
+    console.error(
+      `Error fetching game stats for player ${playerId}:`,
+      error
+    );
+    return null;
+  }
+}
+
+// Fetch season averages for a player (for quick filtering)
 async function fetchPlayerSeasonAverages(playerId) {
   try {
     const currentSeason = 2024; // 2024-2025 season
@@ -247,49 +272,37 @@ function generateMockStats(index) {
   return { pts, reb, ast };
 }
 
-// Generate game-by-game stats from season averages with game context
-function generateStatsFromAverages(averages, gamesCount = 10, allTeams = []) {
+// Process actual game stats from the API
+function processGameStats(gameStats) {
   const pts = [];
   const reb = [];
   const ast = [];
   const gameDetails = [];
 
-  // Generate realistic variance around the averages
-  for (let i = 0; i < gamesCount; i++) {
-    // Use ~20% variance around the average
-    const ptsVariance = averages.pts * 0.2;
-    const rebVariance = averages.reb * 0.2;
-    const astVariance = averages.ast * 0.2;
+  // gameStats is an array of stat objects from the /stats endpoint
+  // Each has: game, player, team, pts, reb, ast, etc.
+  for (const stat of gameStats) {
+    pts.push(stat.pts || 0);
+    reb.push(stat.reb || 0);
+    ast.push(stat.ast || 0);
 
-    pts.push(
-      Math.max(
-        0,
-        Math.round(averages.pts + (Math.random() - 0.5) * 2 * ptsVariance)
-      )
-    );
-    reb.push(
-      Math.max(
-        0,
-        Math.round(averages.reb + (Math.random() - 0.5) * 2 * rebVariance)
-      )
-    );
-    ast.push(
-      Math.max(
-        0,
-        Math.round(averages.ast + (Math.random() - 0.5) * 2 * astVariance)
-      )
-    );
+    // Format game date from the game object
+    const gameDate = stat.game?.date ? new Date(stat.game.date) : new Date();
 
-    // Generate game date (going backwards from today)
-    const daysAgo = i * 3 + 1; // Games roughly every 3 days
-    const gameDate = new Date();
-    gameDate.setDate(gameDate.getDate() - daysAgo);
+    // Determine opponent (if player's team is home, opponent is visitor, and vice versa)
+    let opponent = 'vs OPP';
+    if (stat.game) {
+      const playerTeamId = stat.team?.id;
+      const homeTeamId = stat.game.home_team?.id;
+      const visitorTeamId = stat.game.visitor_team?.id;
 
-    // Pick a random opponent team
-    let opponent = "vs Opponent";
-    if (allTeams && allTeams.length > 0) {
-      const randomTeam = allTeams[Math.floor(Math.random() * allTeams.length)];
-      opponent = `vs ${randomTeam.abbreviation}`;
+      if (playerTeamId === homeTeamId) {
+        // Player was home team, opponent is visitor
+        opponent = `vs ${stat.game.visitor_team?.abbreviation || 'OPP'}`;
+      } else if (playerTeamId === visitorTeamId) {
+        // Player was visitor team, opponent is away
+        opponent = `@ ${stat.game.home_team?.abbreviation || 'OPP'}`;
+      }
     }
 
     gameDetails.push({
@@ -298,9 +311,9 @@ function generateStatsFromAverages(averages, gamesCount = 10, allTeams = []) {
         day: "numeric",
       }),
       opponent: opponent,
-      pts: pts[i],
-      reb: reb[i],
-      ast: ast[i],
+      pts: stat.pts || 0,
+      reb: stat.reb || 0,
+      ast: stat.ast || 0,
     });
   }
 
@@ -313,9 +326,6 @@ export async function getTopPlayersWithStats(teamName, playerCount = 5) {
     const teamAbbr = getTeamAbbreviation(teamName);
     console.log(`[NBA API] Fetching players for ${teamName} (${teamAbbr})`);
 
-    // Fetch all teams for opponent names
-    const allTeams = await fetchAllTeams();
-
     // Fetch all players for the team
     const players = await fetchTeamPlayers(teamAbbr);
 
@@ -325,31 +335,36 @@ export async function getTopPlayersWithStats(teamName, playerCount = 5) {
     }
 
     console.log(
-      `[NBA API] Found ${players.length} players for ${teamName}, fetching season averages...`
+      `[NBA API] Found ${players.length} players for ${teamName}, fetching actual game stats...`
     );
 
-    // Try to fetch season averages for players sequentially (to avoid rate limits)
+    // Try to fetch actual game stats for players sequentially (to avoid rate limits)
     const playerStatsResults = [];
 
     // GOAT tier: 600 requests/min - can check more players
     for (const player of players.slice(0, 15)) {
       try {
-        // Fetch season averages (available on free tier)
+        // First check if they have season averages (quick filter for active players)
         const averages = await fetchPlayerSeasonAverages(player.id);
 
         if (averages && averages.games_played > 0 && averages.pts > 0) {
-          // Generate game-by-game stats from season averages with game context
-          const gameStats = generateStatsFromAverages(averages, 10, allTeams);
+          // Fetch actual game-by-game stats (not generated)
+          const gameStats = await fetchPlayerGameStats(player.id, 10);
 
-          playerStatsResults.push({
-            player,
-            avgPts: averages.pts,
-            stats: gameStats,
-          });
+          if (gameStats && gameStats.length > 0) {
+            // Process actual game stats from API
+            const processedStats = processGameStats(gameStats);
 
-          console.log(
-            `[NBA API] ${player.first_name} ${player.last_name}: ${averages.pts} PPG, ${averages.reb} RPG, ${averages.ast} APG`
-          );
+            playerStatsResults.push({
+              player,
+              avgPts: averages.pts,
+              stats: processedStats,
+            });
+
+            console.log(
+              `[NBA API] ${player.first_name} ${player.last_name}: ${averages.pts} PPG (${gameStats.length} recent games)`
+            );
+          }
         }
 
         // Stop if we have enough players with stats
@@ -376,6 +391,7 @@ export async function getTopPlayersWithStats(teamName, playerCount = 5) {
       return players.slice(0, playerCount).map((player, index) => ({
         name: `${player.first_name} ${player.last_name}`,
         ...generateMockStats(index),
+        gameDetails: [],
       }));
     }
 
