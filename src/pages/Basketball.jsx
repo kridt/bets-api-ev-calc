@@ -941,14 +941,16 @@ export default function Basketball() {
         </h3>
         <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6 }}>
           <ul style={{ margin: "0", paddingLeft: 24 }}>
-            <li>Powered by Ball Don't Lie API GOAT tier with real NBA player statistics</li>
-            <li>Uses actual 2024-25 season data with form-weighted averages (recent games weighted more)</li>
+            <li>Powered by Ball Don't Lie API GOAT tier with real NBA game-by-game statistics</li>
+            <li>Uses actual 2024-25 season game data (not generated) with form-weighted averages</li>
+            <li>Shows real game dates and opponents for each stat line</li>
+            <li>Only displays active players with recent game stats (filters out retired/inactive)</li>
             <li>Incorporates player trends: hot hand theory (↗ improving, ↘ declining)</li>
             <li>Individual props: Points (PTS), Rebounds (REB), Assists (AST)</li>
             <li>Combined props: PRA (Pts+Reb+Ast), PA (Pts+Ast), PR (Pts+Reb), RA (Reb+Ast)</li>
             <li>Targets 63-67% probability range for optimal value betting</li>
             <li>Shows best 2 predictions per player based on probability accuracy</li>
-            <li>Displays last 5 games stats to justify each recommendation</li>
+            <li>Click "▶ Show details" to see actual game dates and opponents</li>
             <li>Click "Track" to save predictions to Firebase for later result checking</li>
             <li>Game times displayed in CET timezone</li>
             <li>Displays next 10 upcoming games (started games are hidden)</li>
