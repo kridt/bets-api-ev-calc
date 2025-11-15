@@ -1,7 +1,10 @@
 // src/utils/nbaApi.js - BALLDONTLIE API Integration
 
-const API_KEY = import.meta.env.BALLDONTLIE_API_KEY;
+const API_KEY = import.meta.env.VITE_BALLDONTLIE_API_KEY;
 const BASE_URL = "https://api.balldontlie.io/v1";
+
+// Debug: Verify API key is loaded
+console.log('[NBA API] API Key loaded:', API_KEY ? `${API_KEY.substring(0, 8)}...` : 'MISSING');
 
 // Rate limiting configuration
 // GOAT tier: 600 requests/minute = 10 requests/second
