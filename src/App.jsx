@@ -1,7 +1,12 @@
 // src/App.jsx
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 
 export default function App() {
+  const location = useLocation();
+  const isBasketball = location.pathname.startsWith('/basketball');
+  const isToday = location.pathname === '/' || location.pathname === '/today';
+  const isMatches = location.pathname.startsWith('/matches') || location.pathname.startsWith('/match/');
+
   return (
     <div
       style={{
@@ -43,50 +48,103 @@ export default function App() {
           border: "1px solid rgba(255, 255, 255, 0.1)",
           boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
         }}>
-          <Link
-            to="/"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              textDecoration: "none",
-              color: "inherit",
-              width: "fit-content",
-            }}
-          >
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 12,
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 20,
-              fontWeight: 900,
-              boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
-            }}>
-              ⚽
-            </div>
-            <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Link
+              to="/"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                textDecoration: "none",
+                color: "inherit",
+              }}
+            >
               <div style={{
-                fontSize: 24,
-                fontWeight: 900,
+                width: 40,
+                height: 40,
+                borderRadius: 12,
                 background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 20,
+                fontWeight: 900,
+                boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
               }}>
-                Bets Stats
+                {isBasketball ? "🏀" : isToday ? "📊" : "⚽"}
               </div>
-              <div style={{
-                fontSize: 12,
-                color: "#64748b",
-                fontWeight: 500,
-              }}>
-                Live Match Analytics
+              <div>
+                <div style={{
+                  fontSize: 24,
+                  fontWeight: 900,
+                  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}>
+                  Bets Stats
+                </div>
+                <div style={{
+                  fontSize: 12,
+                  color: "#64748b",
+                  fontWeight: 500,
+                }}>
+                  {isBasketball ? "NBA Player Props" : isToday ? "Today's Value Bets" : isMatches ? "All Upcoming Matches" : "Betting Analytics"}
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+
+            {/* Navigation Tabs */}
+            <nav style={{ display: "flex", gap: 8 }}>
+              <Link
+                to="/"
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  textDecoration: "none",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  background: isToday ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : "rgba(100, 116, 139, 0.2)",
+                  color: isToday ? "#fff" : "#94a3b8",
+                  border: `1px solid ${isToday ? "rgba(16, 185, 129, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
+                  transition: "all 0.3s",
+                }}
+              >
+                📊 Today's Bets
+              </Link>
+              <Link
+                to="/matches"
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  textDecoration: "none",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  background: isMatches ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" : "rgba(100, 116, 139, 0.2)",
+                  color: isMatches ? "#fff" : "#94a3b8",
+                  border: `1px solid ${isMatches ? "rgba(102, 126, 234, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
+                  transition: "all 0.3s",
+                }}
+              >
+                ⚽ All Matches
+              </Link>
+              <Link
+                to="/basketball"
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  textDecoration: "none",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  background: isBasketball ? "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" : "rgba(100, 116, 139, 0.2)",
+                  color: isBasketball ? "#fff" : "#94a3b8",
+                  border: `1px solid ${isBasketball ? "rgba(245, 158, 11, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
+                  transition: "all 0.3s",
+                }}
+              >
+                🏀 Basketball
+              </Link>
+            </nav>
+          </div>
         </header>
 
         {/* Main Content */}

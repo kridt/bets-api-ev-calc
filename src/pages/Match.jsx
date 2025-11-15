@@ -164,7 +164,7 @@ export default function Match() {
 
   return (
     <div style={{ display: "grid", gap: 24 }}>
-      <Link to="/" style={{
+      <Link to="/matches" style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 8,

@@ -5,6 +5,8 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import App from "./App.jsx";
 import Home from "./pages/Home.jsx";
 import Match from "./pages/Match.jsx";
+import Basketball from "./pages/Basketball.jsx";
+import Today from "./pages/Today.jsx";
 import "./index.css";
 
 const router = createBrowserRouter(
@@ -13,8 +15,10 @@ const router = createBrowserRouter(
       path: "/",
       element: <App />,
       children: [
-        { index: true, element: <Home /> },
+        { index: true, element: <Today /> },
+        { path: "matches", element: <Home /> },
         { path: "match/:eventId", element: <Match /> },
+        { path: "basketball", element: <Basketball /> },
       ],
     },
   ],
