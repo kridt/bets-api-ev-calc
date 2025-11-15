@@ -1,7 +1,7 @@
 // src/utils/nbaApi.js - BALLDONTLIE API Integration
 
-const API_KEY = import.meta.env.VITE_BALLDONTLIE_API_KEY;
-const BASE_URL = 'https://api.balldontlie.io/v1';
+const API_KEY = import.meta.env.BALLDONTLIE_API_KEY;
+const BASE_URL = "https://api.balldontlie.io/v1";
 
 // Rate limiting configuration
 // GOAT tier: 600 requests/minute = 10 requests/second
@@ -15,7 +15,7 @@ const PLAYERS_CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
 // Helper to add delay between requests
 async function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Helper to make rate-limited API requests
@@ -34,8 +34,8 @@ async function fetchFromAPI(endpoint) {
 
     const response = await fetch(url, {
       headers: {
-        'Authorization': API_KEY
-      }
+        Authorization: API_KEY,
+      },
     });
 
     if (!response.ok) {
@@ -82,7 +82,7 @@ const TEAM_NAME_MAP = {
   "San Antonio Spurs": "SAS",
   "Toronto Raptors": "TOR",
   "Utah Jazz": "UTA",
-  "Washington Wizards": "WAS"
+  "Washington Wizards": "WAS",
 };
 
 // Get team abbreviation from full name
@@ -95,22 +95,22 @@ async function fetchAllTeams() {
   const now = Date.now();
 
   // Return cached data if still valid
-  if (teamsCache.data && (now - teamsCache.timestamp < TEAMS_CACHE_DURATION)) {
-    console.log('[NBA API] Using cached teams data');
+  if (teamsCache.data && now - teamsCache.timestamp < TEAMS_CACHE_DURATION) {
+    console.log("[NBA API] Using cached teams data");
     return teamsCache.data;
   }
 
   try {
-    console.log('[NBA API] Fetching teams from API...');
+    console.log("[NBA API] Fetching teams from API...");
     const data = await fetchFromAPI(`/teams`);
     teamsCache.data = data.data;
     teamsCache.timestamp = now;
     return data.data;
   } catch (error) {
-    console.error('[NBA API] Error fetching teams:', error);
+    console.error("[NBA API] Error fetching teams:", error);
     // Return cached data even if expired, rather than failing
     if (teamsCache.data) {
-      console.log('[NBA API] Using expired cache due to error');
+      console.log("[NBA API] Using expired cache due to error");
       return teamsCache.data;
     }
     return [];
@@ -121,7 +121,7 @@ async function fetchAllTeams() {
 export async function fetchTeamByAbbreviation(abbreviation) {
   try {
     const teams = await fetchAllTeams();
-    const team = teams.find(t => t.abbreviation === abbreviation);
+    const team = teams.find((t) => t.abbreviation === abbreviation);
     return team;
   } catch (error) {
     console.error(`Error fetching team ${abbreviation}:`, error);
@@ -146,11 +146,16 @@ export async function fetchTeamPlayers(teamAbbreviation) {
     }
 
     // Use cursor-based pagination as per Ball Don't Lie docs
-    const data = await fetchFromAPI(`/players?team_ids[]=${team.id}&per_page=25`);
+    const data = await fetchFromAPI(
+      `/players?team_ids[]=${team.id}&per_page=25`
+    );
     const players = data.data || [];
 
     // Cache the result
-    playersCache.set(teamAbbreviation, { data: players, timestamp: Date.now() });
+    playersCache.set(teamAbbreviation, {
+      data: players,
+      timestamp: Date.now(),
+    });
 
     return players;
   } catch (error) {
@@ -158,7 +163,9 @@ export async function fetchTeamPlayers(teamAbbreviation) {
     // Return cached data even if expired, rather than failing
     const cached = playersCache.get(teamAbbreviation);
     if (cached) {
-      console.log(`[NBA API] Using expired cache for ${teamAbbreviation} due to error`);
+      console.log(
+        `[NBA API] Using expired cache for ${teamAbbreviation} due to error`
+      );
       return cached.data;
     }
     return [];
@@ -169,7 +176,9 @@ export async function fetchTeamPlayers(teamAbbreviation) {
 async function fetchPlayerSeasonAverages(playerId) {
   try {
     const currentSeason = 2024; // 2024-2025 season
-    const data = await fetchFromAPI(`/season_averages?season=${currentSeason}&player_ids[]=${playerId}`);
+    const data = await fetchFromAPI(
+      `/season_averages?season=${currentSeason}&player_ids[]=${playerId}`
+    );
 
     if (data.data && data.data.length > 0) {
       const avg = data.data[0];
@@ -177,13 +186,16 @@ async function fetchPlayerSeasonAverages(playerId) {
         pts: avg.pts || 0,
         reb: avg.reb || 0,
         ast: avg.ast || 0,
-        games_played: avg.games_played || 0
+        games_played: avg.games_played || 0,
       };
     }
 
     return null;
   } catch (error) {
-    console.error(`Error fetching season averages for player ${playerId}:`, error);
+    console.error(
+      `Error fetching season averages for player ${playerId}:`,
+      error
+    );
     return null;
   }
 }
@@ -209,9 +221,24 @@ function generateMockStats(index) {
   const ast = [];
 
   for (let i = 0; i < 10; i++) {
-    pts.push(Math.max(0, Math.round(profile.ptsBase + (Math.random() - 0.5) * 2 * profile.ptsVar)));
-    reb.push(Math.max(0, Math.round(profile.rebBase + (Math.random() - 0.5) * 2 * profile.rebVar)));
-    ast.push(Math.max(0, Math.round(profile.astBase + (Math.random() - 0.5) * 2 * profile.astVar)));
+    pts.push(
+      Math.max(
+        0,
+        Math.round(profile.ptsBase + (Math.random() - 0.5) * 2 * profile.ptsVar)
+      )
+    );
+    reb.push(
+      Math.max(
+        0,
+        Math.round(profile.rebBase + (Math.random() - 0.5) * 2 * profile.rebVar)
+      )
+    );
+    ast.push(
+      Math.max(
+        0,
+        Math.round(profile.astBase + (Math.random() - 0.5) * 2 * profile.astVar)
+      )
+    );
   }
 
   return { pts, reb, ast };
@@ -231,9 +258,24 @@ function generateStatsFromAverages(averages, gamesCount = 10, allTeams = []) {
     const rebVariance = averages.reb * 0.2;
     const astVariance = averages.ast * 0.2;
 
-    pts.push(Math.max(0, Math.round(averages.pts + (Math.random() - 0.5) * 2 * ptsVariance)));
-    reb.push(Math.max(0, Math.round(averages.reb + (Math.random() - 0.5) * 2 * rebVariance)));
-    ast.push(Math.max(0, Math.round(averages.ast + (Math.random() - 0.5) * 2 * astVariance)));
+    pts.push(
+      Math.max(
+        0,
+        Math.round(averages.pts + (Math.random() - 0.5) * 2 * ptsVariance)
+      )
+    );
+    reb.push(
+      Math.max(
+        0,
+        Math.round(averages.reb + (Math.random() - 0.5) * 2 * rebVariance)
+      )
+    );
+    ast.push(
+      Math.max(
+        0,
+        Math.round(averages.ast + (Math.random() - 0.5) * 2 * astVariance)
+      )
+    );
 
     // Generate game date (going backwards from today)
     const daysAgo = i * 3 + 1; // Games roughly every 3 days
@@ -241,18 +283,21 @@ function generateStatsFromAverages(averages, gamesCount = 10, allTeams = []) {
     gameDate.setDate(gameDate.getDate() - daysAgo);
 
     // Pick a random opponent team
-    let opponent = 'vs Opponent';
+    let opponent = "vs Opponent";
     if (allTeams && allTeams.length > 0) {
       const randomTeam = allTeams[Math.floor(Math.random() * allTeams.length)];
       opponent = `vs ${randomTeam.abbreviation}`;
     }
 
     gameDetails.push({
-      date: gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      date: gameDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
       opponent: opponent,
       pts: pts[i],
       reb: reb[i],
-      ast: ast[i]
+      ast: ast[i],
     });
   }
 
@@ -276,7 +321,9 @@ export async function getTopPlayersWithStats(teamName, playerCount = 5) {
       return [];
     }
 
-    console.log(`[NBA API] Found ${players.length} players for ${teamName}, fetching season averages...`);
+    console.log(
+      `[NBA API] Found ${players.length} players for ${teamName}, fetching season averages...`
+    );
 
     // Try to fetch season averages for players sequentially (to avoid rate limits)
     const playerStatsResults = [];
@@ -294,10 +341,12 @@ export async function getTopPlayersWithStats(teamName, playerCount = 5) {
           playerStatsResults.push({
             player,
             avgPts: averages.pts,
-            stats: gameStats
+            stats: gameStats,
           });
 
-          console.log(`[NBA API] ${player.first_name} ${player.last_name}: ${averages.pts} PPG, ${averages.reb} RPG, ${averages.ast} APG`);
+          console.log(
+            `[NBA API] ${player.first_name} ${player.last_name}: ${averages.pts} PPG, ${averages.reb} RPG, ${averages.ast} APG`
+          );
         }
 
         // Stop if we have enough players with stats
@@ -306,7 +355,10 @@ export async function getTopPlayersWithStats(teamName, playerCount = 5) {
         }
       } catch (error) {
         // Continue to next player on error
-        console.warn(`[NBA API] Error fetching stats for ${player.first_name} ${player.last_name}:`, error.message);
+        console.warn(
+          `[NBA API] Error fetching stats for ${player.first_name} ${player.last_name}:`,
+          error.message
+        );
       }
     }
 
@@ -315,26 +367,37 @@ export async function getTopPlayersWithStats(teamName, playerCount = 5) {
     const topPlayers = playerStatsResults.slice(0, playerCount);
 
     if (topPlayers.length === 0) {
-      console.warn(`[NBA API] No stats available for ${teamName}, using player names with mock stats`);
+      console.warn(
+        `[NBA API] No stats available for ${teamName}, using player names with mock stats`
+      );
       return players.slice(0, playerCount).map((player, index) => ({
         name: `${player.first_name} ${player.last_name}`,
-        ...generateMockStats(index)
+        ...generateMockStats(index),
       }));
     }
 
-    console.log(`[NBA API] Top ${topPlayers.length} players for ${teamName}:`,
-      topPlayers.map(p => `${p.player.first_name} ${p.player.last_name} (${p.avgPts.toFixed(1)} PPG)`));
+    console.log(
+      `[NBA API] Top ${topPlayers.length} players for ${teamName}:`,
+      topPlayers.map(
+        (p) =>
+          `${p.player.first_name} ${p.player.last_name} (${p.avgPts.toFixed(
+            1
+          )} PPG)`
+      )
+    );
 
-    return topPlayers.map(p => ({
+    return topPlayers.map((p) => ({
       name: `${p.player.first_name} ${p.player.last_name}`,
       pts: p.stats.pts,
       reb: p.stats.reb,
       ast: p.stats.ast,
-      gameDetails: p.stats.gameDetails || []
+      gameDetails: p.stats.gameDetails || [],
     }));
-
   } catch (error) {
-    console.error(`[NBA API] Error fetching top players for ${teamName}:`, error);
+    console.error(
+      `[NBA API] Error fetching top players for ${teamName}:`,
+      error
+    );
     return [];
   }
 }
@@ -364,20 +427,22 @@ export async function fetchUpcomingGames(limit = 30) {
     // Start from yesterday to catch all of today's games (timezone differences)
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const startDate = yesterday.toISOString().split('T')[0]; // YYYY-MM-DD
+    const startDate = yesterday.toISOString().split("T")[0]; // YYYY-MM-DD
 
     const nextWeek = new Date();
     nextWeek.setDate(nextWeek.getDate() + 7);
-    const endDate = nextWeek.toISOString().split('T')[0];
+    const endDate = nextWeek.toISOString().split("T")[0];
 
     console.log(`[NBA API] Fetching games from ${startDate} to ${endDate}`);
 
     // Fetch more games than needed, we'll filter client-side
-    const data = await fetchFromAPI(`/games?start_date=${startDate}&end_date=${endDate}&per_page=${limit}`);
+    const data = await fetchFromAPI(
+      `/games?start_date=${startDate}&end_date=${endDate}&per_page=${limit}`
+    );
     console.log(`[NBA API] Found ${data.data.length} total games`);
 
     // Transform to match expected format
-    return data.data.map(game => ({
+    return data.data.map((game) => ({
       id: game.id,
       home: {
         id: game.home_team.id,
@@ -392,13 +457,12 @@ export async function fetchUpcomingGames(limit = 30) {
       time: new Date(game.date).getTime() / 1000, // Convert to Unix timestamp
       status: game.status,
       league: {
-        id: 'nba',
-        name: 'NBA',
-      }
+        id: "nba",
+        name: "NBA",
+      },
     }));
-
   } catch (error) {
-    console.error('[NBA API] Error fetching games:', error);
+    console.error("[NBA API] Error fetching games:", error);
     return [];
   }
 }
