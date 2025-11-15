@@ -9,4 +9,15 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  // Explicitly define environment variable prefix (default is VITE_)
+  envPrefix: 'VITE_',
+  // Log loaded env vars during build for debugging
+  build: {
+    // Ensure environment variables are available at build time
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  }
 });
