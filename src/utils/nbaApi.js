@@ -1,7 +1,7 @@
 // src/utils/nbaApi.js - BALLDONTLIE API Integration
 
 const API_KEY = import.meta.env.VITE_BALLDONTLIE_API_KEY;
-const BASE_URL = "https://api.balldontlie.io/v1";
+const BASE_URL = "https://api.balldontlie.io";
 
 // Debug: Verify API key is loaded
 console.log('[NBA API] API Key loaded:', API_KEY ? `${API_KEY.substring(0, 8)}...` : 'MISSING');
@@ -105,7 +105,7 @@ async function fetchAllTeams() {
 
   try {
     console.log("[NBA API] Fetching teams from API...");
-    const data = await fetchFromAPI(`/teams`);
+    const data = await fetchFromAPI(`/nba/v1/teams`);
     teamsCache.data = data.data;
     teamsCache.timestamp = now;
     return data.data;
@@ -150,7 +150,7 @@ export async function fetchTeamPlayers(teamAbbreviation) {
 
     // Use cursor-based pagination as per Ball Don't Lie docs
     const data = await fetchFromAPI(
-      `/players?team_ids[]=${team.id}&per_page=25`
+      `/nba/v1/players?team_ids[]=${team.id}&per_page=25`
     );
     const players = data.data || [];
 
@@ -182,7 +182,7 @@ async function fetchPlayerGameStats(playerId, gamesCount = 10) {
 
     // Get player's recent game stats using the /stats endpoint
     const data = await fetchFromAPI(
-      `/stats?seasons[]=${currentSeason}&player_ids[]=${playerId}&per_page=${gamesCount}`
+      `/nba/v1/stats?seasons[]=${currentSeason}&player_ids[]=${playerId}&per_page=${gamesCount}`
     );
 
     if (!data.data || data.data.length === 0) {
@@ -205,7 +205,7 @@ async function fetchPlayerSeasonAverages(playerId) {
   try {
     const currentSeason = 2024; // 2024-2025 season
     const data = await fetchFromAPI(
-      `/season_averages?season=${currentSeason}&player_ids[]=${playerId}`
+      `/nba/v1/season_averages?season=${currentSeason}&player_ids[]=${playerId}`
     );
 
     if (data.data && data.data.length > 0) {
@@ -220,6 +220,11 @@ async function fetchPlayerSeasonAverages(playerId) {
 
     return null;
   } catch (error) {
+    // Silently skip players with 400 errors (likely retired/inactive)
+    if (error.message && error.message.includes('400')) {
+      console.log(`[NBA API] Skipping player ${playerId} (no 2024-25 stats - likely inactive)`);
+      return null;
+    }
     console.error(
       `Error fetching season averages for player ${playerId}:`,
       error
