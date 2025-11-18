@@ -1,16 +1,17 @@
 // src/services/nbaTracking.js - NBA Prediction Tracking with Firebase
 
-import { getFirestore, collection, doc, setDoc, getDocs, query, where, serverTimestamp, orderBy } from "firebase/firestore";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp, orderBy } from "firebase/firestore";
 import { db, getBrowserFingerprint } from "./firebase";
 
 const NBA_PREDICTIONS_COLLECTION = "nba_predictions";
 
 /**
- * Generate unique key for NBA prediction
+ * Generate unique key for NBA prediction (GLOBAL - shared across all users)
  */
-function generateNBAPredictionKey(userId, gameId, playerName, statType, line, type) {
+function generateNBAPredictionKey(gameId, playerName, statType, line, type) {
   const sanitize = (str) => String(str).toLowerCase().replace(/[^a-z0-9]/g, '_');
-  return `${userId}_${gameId}_${sanitize(playerName)}_${sanitize(statType)}_${line}_${type}`;
+  // NOTE: No userId in key - this makes tracking global across all users
+  return `global_${gameId}_${sanitize(playerName)}_${sanitize(statType)}_${line}_${type}`;
 }
 
 /**
@@ -22,9 +23,8 @@ export async function trackNBAPrediction(predictionData) {
   try {
     const userId = getBrowserFingerprint();
 
-    // Generate unique key
+    // Generate unique key (GLOBAL - no userId in key)
     const uniqueKey = generateNBAPredictionKey(
-      userId,
       predictionData.gameId,
       predictionData.playerName,
       predictionData.statType,
@@ -32,14 +32,35 @@ export async function trackNBAPrediction(predictionData) {
       predictionData.type
     );
 
-    // Check if already tracked
+    // Check if already tracked by ANY user
     const docRef = doc(db, NBA_PREDICTIONS_COLLECTION, uniqueKey);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      console.log(`[NBA Tracking] Prediction already tracked globally: ${uniqueKey}`);
+      // Update the trackedBy list to include current user
+      const existingData = docSnap.data();
+      const trackedBy = existingData.trackedBy || [];
+
+      if (!trackedBy.includes(userId)) {
+        trackedBy.push(userId);
+        await setDoc(docRef, {
+          trackedBy,
+          lastTrackedAt: new Date().toISOString(),
+          lastTrackedBy: userId,
+        }, { merge: true });
+        console.log(`[NBA Tracking] Added user ${userId} to trackedBy list`);
+      }
+
+      return uniqueKey; // Return existing ID, don't create duplicate
+    }
 
     // Create prediction document
     const predictionDoc = {
       // Unique identifier
       id: uniqueKey,
-      userId,
+      firstTrackedBy: userId, // First user who tracked this
+      trackedBy: [userId], // Array of all users who tracked this
 
       // Game details
       game: {
@@ -72,6 +93,8 @@ export async function trackNBAPrediction(predictionData) {
       // Tracking metadata
       status: 'pending', // 'pending', 'won', 'lost', 'push', 'void'
       trackedAt: new Date().toISOString(),
+      lastTrackedAt: new Date().toISOString(),
+      lastTrackedBy: userId,
       createdAtServer: serverTimestamp(),
 
       // Result (to be filled later by API check)
@@ -85,7 +108,7 @@ export async function trackNBAPrediction(predictionData) {
 
     // Save to Firestore
     await setDoc(docRef, predictionDoc);
-    console.log(`[NBA Tracking] Saved prediction: ${uniqueKey}`);
+    console.log(`[NBA Tracking] Saved prediction globally: ${uniqueKey}`);
 
     return uniqueKey;
 
@@ -96,15 +119,13 @@ export async function trackNBAPrediction(predictionData) {
 }
 
 /**
- * Get all tracked NBA predictions for current user
+ * Get all tracked NBA predictions (GLOBAL - across all users)
  */
 export async function getAllNBAPredictions() {
   try {
-    const userId = getBrowserFingerprint();
-
+    // Query ALL predictions (no userId filter for global tracking)
     const q = query(
       collection(db, NBA_PREDICTIONS_COLLECTION),
-      where("userId", "==", userId),
       orderBy("createdAtServer", "desc")
     );
 
@@ -118,7 +139,7 @@ export async function getAllNBAPredictions() {
       });
     });
 
-    console.log(`[NBA Tracking] Loaded ${predictions.length} predictions`);
+    console.log(`[NBA Tracking] Loaded ${predictions.length} global predictions`);
     return predictions;
 
   } catch (error) {

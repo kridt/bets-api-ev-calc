@@ -8,6 +8,14 @@ export default defineConfig({
   publicDir: 'public',
   server: {
     port: 5173,
+    proxy: {
+      // Proxy NBA API requests to avoid CORS issues
+      '/nba-api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/nba-api/, '/api'),
+      }
+    }
   },
   // Explicitly define environment variable prefix (default is VITE_)
   envPrefix: 'VITE_',
