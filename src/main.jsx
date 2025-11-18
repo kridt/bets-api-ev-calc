@@ -7,6 +7,7 @@ import Home from "./pages/Home.jsx";
 import Match from "./pages/Match.jsx";
 import Basketball from "./pages/Basketball.jsx";
 import Today from "./pages/Today.jsx";
+import Results from "./pages/Results.jsx";
 import "./index.css";
 
 const router = createBrowserRouter(
@@ -19,6 +20,7 @@ const router = createBrowserRouter(
         { path: "matches", element: <Home /> },
         { path: "match/:eventId", element: <Match /> },
         { path: "basketball", element: <Basketball /> },
+        { path: "results", element: <Results /> },
       ],
     },
   ],
