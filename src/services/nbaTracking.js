@@ -149,16 +149,15 @@ export async function getAllNBAPredictions() {
 }
 
 /**
- * Get pending NBA predictions (not yet checked)
+ * Get pending NBA predictions (GLOBAL - all pending predictions)
  */
 export async function getPendingNBAPredictions() {
   try {
-    const userId = getBrowserFingerprint();
-
+    // Load ALL pending predictions globally
     const q = query(
       collection(db, NBA_PREDICTIONS_COLLECTION),
-      where("userId", "==", userId),
-      where("status", "==", "pending")
+      where("status", "==", "pending"),
+      orderBy("createdAtServer", "desc")
     );
 
     const querySnapshot = await getDocs(q);
@@ -171,6 +170,7 @@ export async function getPendingNBAPredictions() {
       });
     });
 
+    console.log(`[NBA Tracking] Loaded ${predictions.length} pending predictions`);
     return predictions;
 
   } catch (error) {

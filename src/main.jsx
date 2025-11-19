@@ -3,11 +3,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import App from "./App.jsx";
-import Home from "./pages/Home.jsx";
-import Match from "./pages/Match.jsx";
 import Basketball from "./pages/Basketball.jsx";
 import Today from "./pages/Today.jsx";
-import Results from "./pages/Results.jsx";
 import "./index.css";
 
 const router = createBrowserRouter(
@@ -17,10 +14,7 @@ const router = createBrowserRouter(
       element: <App />,
       children: [
         { index: true, element: <Today /> },
-        { path: "matches", element: <Home /> },
-        { path: "match/:eventId", element: <Match /> },
         { path: "basketball", element: <Basketball /> },
-        { path: "results", element: <Results /> },
       ],
     },
   ],

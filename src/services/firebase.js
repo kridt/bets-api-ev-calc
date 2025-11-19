@@ -104,19 +104,14 @@ export async function savePredictionToFirebase(prediction) {
 }
 
 /**
- * Get all predictions for the current user
+ * Get all predictions (no user filtering - shows all predictions)
  * @returns {Promise<Array>} Array of prediction objects
  */
 export async function getAllPredictionsFromFirebase() {
   try {
-    const userId = getBrowserFingerprint();
-
-    const q = query(
-      collection(db, PREDICTIONS_COLLECTION),
-      where("userId", "==", userId)
-    );
-
-    const querySnapshot = await getDocs(q);
+    // Load ALL predictions from the collection (no userId filter)
+    // This ensures we get both old and new predictions
+    const querySnapshot = await getDocs(collection(db, PREDICTIONS_COLLECTION));
     const predictions = [];
 
     querySnapshot.forEach((doc) => {
@@ -126,7 +121,7 @@ export async function getAllPredictionsFromFirebase() {
       });
     });
 
-    console.log(`[Firebase] Loaded ${predictions.length} predictions`);
+    console.log(`[Firebase] Loaded ${predictions.length} total predictions from Firebase`);
     return predictions;
 
   } catch (error) {
@@ -197,16 +192,14 @@ export async function updatePredictionResult(predictionId, result) {
 }
 
 /**
- * Get pending predictions (not yet verified)
+ * Get pending predictions (not yet verified - all users)
  * @returns {Promise<Array>} Array of pending predictions
  */
 export async function getPendingPredictionsFromFirebase() {
   try {
-    const userId = getBrowserFingerprint();
-
+    // Load all pending predictions (no userId filter)
     const q = query(
       collection(db, PREDICTIONS_COLLECTION),
-      where("userId", "==", userId),
       where("result.status", "==", "pending")
     );
 
@@ -220,6 +213,7 @@ export async function getPendingPredictionsFromFirebase() {
       });
     });
 
+    console.log(`[Firebase] Loaded ${predictions.length} pending predictions`);
     return predictions;
 
   } catch (error) {

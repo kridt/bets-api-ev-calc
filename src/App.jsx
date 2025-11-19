@@ -5,8 +5,6 @@ export default function App() {
   const location = useLocation();
   const isBasketball = location.pathname.startsWith('/basketball');
   const isToday = location.pathname === '/' || location.pathname === '/today';
-  const isMatches = location.pathname.startsWith('/matches') || location.pathname.startsWith('/match/');
-  const isResults = location.pathname.startsWith('/results');
 
   return (
     <div
@@ -72,7 +70,7 @@ export default function App() {
                 fontWeight: 900,
                 boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
               }}>
-                {isBasketball ? "🏀" : isResults ? "📋" : isToday ? "📊" : "⚽"}
+                {isBasketball ? "🏀" : "⚽"}
               </div>
               <div>
                 <div style={{
@@ -89,7 +87,7 @@ export default function App() {
                   color: "#64748b",
                   fontWeight: 500,
                 }}>
-                  {isBasketball ? "NBA Player Props" : isResults ? "Prediction Results" : isToday ? "Today's Value Bets" : isMatches ? "All Upcoming Matches" : "Betting Analytics"}
+                  {isBasketball ? "NBA Player Props" : "EPL Match & Player Props"}
                 </div>
               </div>
             </Link>
@@ -110,23 +108,7 @@ export default function App() {
                   transition: "all 0.3s",
                 }}
               >
-                📊 Today's Bets
-              </Link>
-              <Link
-                to="/matches"
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: 12,
-                  textDecoration: "none",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  background: isMatches ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" : "rgba(100, 116, 139, 0.2)",
-                  color: isMatches ? "#fff" : "#94a3b8",
-                  border: `1px solid ${isMatches ? "rgba(102, 126, 234, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
-                  transition: "all 0.3s",
-                }}
-              >
-                ⚽ All Matches
+                ⚽ EPL Bets
               </Link>
               <Link
                 to="/basketball"
@@ -142,23 +124,7 @@ export default function App() {
                   transition: "all 0.3s",
                 }}
               >
-                🏀 Basketball
-              </Link>
-              <Link
-                to="/results"
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: 12,
-                  textDecoration: "none",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  background: isResults ? "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)" : "rgba(100, 116, 139, 0.2)",
-                  color: isResults ? "#fff" : "#94a3b8",
-                  border: `1px solid ${isResults ? "rgba(139, 92, 246, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
-                  transition: "all 0.3s",
-                }}
-              >
-                📋 Results
+                🏀 NBA Props
               </Link>
             </nav>
           </div>
@@ -179,7 +145,7 @@ export default function App() {
           borderTop: "1px solid rgba(255, 255, 255, 0.05)",
         }}>
           <p style={{ margin: 0 }}>
-            Data provided by BetsAPI • Updated in real-time
+            EPL data by balldontlie.io • NBA data by balldontlie.io • Real-time probability calculations
           </p>
         </footer>
       </div>

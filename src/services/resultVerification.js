@@ -1,26 +1,101 @@
 // src/services/resultVerification.js - Automated result verification service
 
 import { fetchEventView } from "../api/bets";
+import {
+  canMakeCall,
+  recordCall,
+  waitForRateLimit,
+  cacheMatchResult,
+  getCachedMatchResult
+} from "./rateLimiter";
 
 /**
- * Fetch completed soccer match statistics from BetsAPI
+ * Fetch completed soccer match statistics from BetsAPI (with rate limiting and caching)
  * @param {string} eventId - The BetsAPI event ID
  * @returns {Promise<Object|null>} Match stats or null if not found
  */
 export async function fetchSoccerMatchResult(eventId) {
   try {
     console.log('[Result Verification] Fetching soccer match:', eventId);
+
+    // Check cache first
+    const cached = getCachedMatchResult(eventId);
+    if (cached) {
+      console.log('[Result Verification] Using cached result');
+      return cached;
+    }
+
+    // Check rate limit
+    const rateLimitCheck = canMakeCall();
+    if (!rateLimitCheck.allowed) {
+      throw new Error(`Rate limit: ${rateLimitCheck.message}`);
+    }
+
+    // Wait for rate limit if needed
+    await waitForRateLimit();
+
+    // Make API call
     const eventData = await fetchEventView(eventId);
 
-    if (!eventData || !eventData.stats) {
+    // Record the call
+    recordCall('fetchEventView');
+
+    if (!eventData) {
+      console.warn('[Result Verification] No event data found for event:', eventId);
+      return null;
+    }
+
+    if (!eventData.stats) {
       console.warn('[Result Verification] No stats found for event:', eventId);
+      console.log('[Result Verification] Available keys:', Object.keys(eventData));
       return null;
     }
 
     // Extract final statistics from the match
     const stats = eventData.stats;
+    console.log('[Result Verification] Match:', eventData.home?.name, 'vs', eventData.away?.name, '- Time status:', eventData.time_status);
 
-    return {
+    // Helper function to safely parse stat values from BetsAPI
+    const parseStat = (statObj, key) => {
+      if (!statObj) return { home: 0, away: 0, total: 0 };
+
+      let home = 0;
+      let away = 0;
+
+      // BetsAPI returns stats as arrays: ["5", "3"] means [home, away]
+      if (Array.isArray(statObj[key])) {
+        home = parseInt(statObj[key][0] || 0);
+        away = parseInt(statObj[key][1] || 0);
+      }
+      // Try object format as fallback
+      else if (statObj[key]) {
+        home = parseInt(statObj[key].home || statObj[key].Home || 0);
+        away = parseInt(statObj[key].away || statObj[key].Away || 0);
+      }
+
+      return {
+        home: home || 0,
+        away: away || 0,
+        total: (home || 0) + (away || 0)
+      };
+    };
+
+    // Parse individual stats from BetsAPI
+    const corners = parseStat(stats, 'corners');
+    const yellowCards = parseStat(stats, 'yellowcards');
+    const redCards = parseStat(stats, 'redcards');
+    const shotsOnTarget = parseStat(stats, 'on_target');
+    const shotsOffTarget = parseStat(stats, 'off_target');
+    const offsides = parseStat(stats, 'offsides');
+
+    // Calculate total shots (on target + off target)
+    const totalShots = {
+      home: shotsOnTarget.home + shotsOffTarget.home,
+      away: shotsOnTarget.away + shotsOffTarget.away,
+      total: shotsOnTarget.total + shotsOffTarget.total
+    };
+
+    const result = {
       eventId: eventData.id,
       homeTeam: eventData.home?.name || 'Home',
       awayTeam: eventData.away?.name || 'Away',
@@ -29,33 +104,31 @@ export async function fetchSoccerMatchResult(eventId) {
         away: eventData.ss ? parseInt(eventData.ss.split('-')[1]) : null,
       },
       stats: {
-        // Corners
-        corners: {
-          home: parseInt(stats.corners?.home) || 0,
-          away: parseInt(stats.corners?.away) || 0,
-          total: (parseInt(stats.corners?.home) || 0) + (parseInt(stats.corners?.away) || 0),
-        },
-        // Yellow cards
-        yellowCards: {
-          home: parseInt(stats.yellowcards?.home) || 0,
-          away: parseInt(stats.yellowcards?.away) || 0,
-          total: (parseInt(stats.yellowcards?.home) || 0) + (parseInt(stats.yellowcards?.away) || 0),
-        },
-        // Shots on target
-        shotsOnTarget: {
-          home: parseInt(stats.attacks?.home) || 0, // BetsAPI might use 'attacks' or 'shotstarget'
-          away: parseInt(stats.attacks?.away) || 0,
-          total: (parseInt(stats.attacks?.home) || 0) + (parseInt(stats.attacks?.away) || 0),
-        },
-        // Total shots
-        shots: {
-          home: parseInt(stats.shots_total?.home) || 0,
-          away: parseInt(stats.shots_total?.away) || 0,
-          total: (parseInt(stats.shots_total?.home) || 0) + (parseInt(stats.shots_total?.away) || 0),
-        },
+        corners: corners,
+        yellowCards: yellowCards,
+        redCards: redCards,
+        shotsOnTarget: shotsOnTarget,
+        shots: totalShots,
+        offsides: offsides,
       },
       finished: eventData.time_status === '3' || eventData.time_status === 3, // 3 = finished
     };
+
+    // Log parsed stats
+    console.log('[Result Verification] ✅ Parsed stats:', {
+      'Corners': `${corners.home}-${corners.away} (total: ${corners.total})`,
+      'Yellow Cards': `${yellowCards.home}-${yellowCards.away} (total: ${yellowCards.total})`,
+      'Shots on Target': `${shotsOnTarget.home}-${shotsOnTarget.away} (total: ${shotsOnTarget.total})`,
+      'Total Shots': `${totalShots.home}-${totalShots.away} (total: ${totalShots.total})`,
+      'Offsides': `${offsides.home}-${offsides.away} (total: ${offsides.total})`,
+    });
+
+    // Cache the result if match is finished
+    if (result.finished) {
+      cacheMatchResult(eventId, result);
+    }
+
+    return result;
   } catch (error) {
     console.error('[Result Verification] Error fetching soccer result:', error);
     throw new Error(`Failed to fetch soccer match result: ${error.message}`);
@@ -145,14 +218,18 @@ export async function verifySoccerPrediction(prediction) {
 
     if (market.includes('corner')) {
       actualValue = matchResult.stats.corners.total;
+    } else if (market.includes('red') && market.includes('card')) {
+      actualValue = matchResult.stats.redCards.total;
     } else if (market.includes('yellow') || market.includes('card')) {
       actualValue = matchResult.stats.yellowCards.total;
     } else if (market.includes('shot on target') || market.includes('shots on target')) {
       actualValue = matchResult.stats.shotsOnTarget.total;
     } else if (market.includes('shot')) {
       actualValue = matchResult.stats.shots.total;
+    } else if (market.includes('offside')) {
+      actualValue = matchResult.stats.offsides.total;
     } else {
-      throw new Error(`Unsupported market type: ${market}`);
+      throw new Error(`Unsupported market type: ${market}. Supported markets: Corners, Yellow Cards, Red Cards, Shots on Target, Total Shots, Offsides`);
     }
 
     // Calculate outcome

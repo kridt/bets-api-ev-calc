@@ -1,24 +1,9 @@
-// src/pages/Today.jsx - Today's Value Bets Dashboard
+// src/pages/Today.jsx - Today's Value Bets Dashboard (using balldontlie.io)
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchNextFixturesByLeague, fetchEventHistory, fetchStatsTrend, fetchEventView } from "../api";
-import { computeAveragesForTeam } from "../utils/stats";
-import { calculateBettingPredictions } from "../utils/probability";
+import { fetchTodaysEPLMatches, formatEPLPredictionsForUI } from "../utils/footballApi";
 import { savePrediction, getTodaysPredictions, getAccuracyStats, downloadPredictionsJSON } from "../utils/predictionTracker";
 import Skeleton from "../components/Skeleton";
-
-// All leagues to analyze
-const LEAGUES = [
-  { id: 49, name: "Danish Superliga" },
-  { id: 94, name: "Premier League" },
-  { id: 33207, name: "World Cup 2026" },
-  { id: 681, name: "Europe - WC Qualifying" },
-  { id: 473, name: "South America - WC Qualifying" },
-  { id: 455, name: "Asia - WC Qualifying" },
-  { id: 1735, name: "Africa - WC Qualifying" },
-  { id: 28749, name: "North & Central America - WC Qualifying" },
-  { id: 2641, name: "Oceania - WC Qualifying" },
-];
 
 function PredictionCard({ match, predictions, onTrack }) {
   const [tracked, setTracked] = useState(false);
@@ -358,46 +343,30 @@ export default function Today() {
 
   async function loadTodaysMatches() {
     const t0 = performance.now();
-    console.log("[Today] Loading matches...");
+    console.log("[Today] Loading EPL matches from balldontlie.io...");
 
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch matches from all leagues
-      const leaguePromises = LEAGUES.map(league =>
-        fetchNextFixturesByLeague(league.id, 10)
-          .then(matches => ({ league, matches }))
-          .catch(err => {
-            console.error(`[Today] Error loading ${league.name}:`, err);
-            return { league, matches: [] };
-          })
-      );
-
-      const leagueResults = await Promise.all(leaguePromises);
-
-      // Filter matches happening in next 24 hours
-      const now = Date.now();
-      const next24h = now + (24 * 60 * 60 * 1000);
-
-      const todaysMatches = [];
-      leagueResults.forEach(({ league, matches }) => {
-        matches.forEach(match => {
-          const matchTime = match.time ? match.time * 1000 : null;
-          if (matchTime && matchTime >= now && matchTime <= next24h) {
-            todaysMatches.push({
-              ...match,
-              league: league,
-            });
-          }
-        });
+      // Fetch EPL matches from new API
+      const response = await fetchTodaysEPLMatches({
+        minProb: 0.58,
+        maxProb: 0.62,
+        games: 10,
       });
 
-      console.log(`[Today] Found ${todaysMatches.length} matches in next 24h`);
-      setMatches(todaysMatches);
+      console.log("[Today] API Response:", response);
 
-      // Calculate predictions for each match
-      await calculatePredictionsForMatches(todaysMatches);
+      // Format predictions for UI
+      const formattedPredictions = formatEPLPredictionsForUI(response.matches || []);
+
+      console.log(`[Today] Found ${formattedPredictions.length} matches with predictions`);
+
+      // Extract matches for state
+      const matchesArray = formattedPredictions.map(p => p.match);
+      setMatches(matchesArray);
+      setPredictions(formattedPredictions);
 
       console.log(`[Today] Loaded in ${Math.round(performance.now() - t0)}ms`);
 
@@ -409,77 +378,13 @@ export default function Today() {
     }
   }
 
-  async function calculatePredictionsForMatches(matchesArray) {
-    const allPredictions = [];
-
-    // Process matches in batches to avoid rate limiting
-    const batchSize = 3;
-    for (let i = 0; i < matchesArray.length; i += batchSize) {
-      const batch = matchesArray.slice(i, i + batchSize);
-
-      const batchPredictions = await Promise.all(
-        batch.map(async (match) => {
-          try {
-            // Fetch history for both teams
-            const hist = await fetchEventHistory(match.id, 10);
-
-            if (!hist.home || !hist.away || hist.home.length === 0 || hist.away.length === 0) {
-              return { match, predictions: [] };
-            }
-
-            const homeNameSafe = match.home?.name || "";
-            const awayNameSafe = match.away?.name || "";
-            const homeIdSafe = match.home?.id || "";
-            const awayIdSafe = match.away?.id || "";
-
-            // Compute averages
-            const [homeStats, awayStats] = await Promise.all([
-              computeAveragesForTeam(
-                hist.home,
-                (eid) => fetchStatsTrend(eid),
-                (eid) => fetchEventView(eid),
-                { ourName: homeNameSafe, ourId: homeIdSafe }
-              ),
-              computeAveragesForTeam(
-                hist.away,
-                (eid) => fetchStatsTrend(eid),
-                (eid) => fetchEventView(eid),
-                { ourName: awayNameSafe, ourId: awayIdSafe }
-              ),
-            ]);
-
-            // Calculate predictions
-            const preds = calculateBettingPredictions(
-              homeStats.details,
-              awayStats.details,
-              { targetProbMin: 0.58, targetProbMax: 0.62 }
-            );
-
-            return { match, predictions: preds };
-
-          } catch (err) {
-            console.error(`[Today] Error calculating for match ${match.id}:`, err);
-            return { match, predictions: [] };
-          }
-        })
-      );
-
-      allPredictions.push(...batchPredictions);
-
-      // Small delay between batches
-      if (i + batchSize < matchesArray.length) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-    }
-
-    setPredictions(allPredictions.filter(p => p.predictions.length > 0));
-  }
-
   const filteredPredictions = predictions.filter(p => {
     if (filter === "all") return true;
-    if (filter === "corners") return p.predictions.some(pred => pred.market === "Corners");
-    if (filter === "shots") return p.predictions.some(pred => pred.market.includes("Shots"));
-    if (filter === "cards") return p.predictions.some(pred => pred.market.includes("Cards"));
+    if (filter === "corners") return p.predictions.some(pred => pred.market.toLowerCase().includes("corners"));
+    if (filter === "shots") return p.predictions.some(pred => pred.market.toLowerCase().includes("shots"));
+    if (filter === "cards") return p.predictions.some(pred => pred.market.toLowerCase().includes("cards"));
+    if (filter === "goals") return p.predictions.some(pred => pred.market.toLowerCase().includes("goals"));
+    if (filter === "players") return p.predictions.some(pred => pred.isProp === true);
     return true;
   });
 
@@ -534,7 +439,7 @@ export default function Today() {
           color: "#94a3b8",
           marginBottom: 20,
         }}>
-          All betting opportunities for the next 24 hours with 58-62% probability
+          EPL betting opportunities powered by balldontlie.io - Match stats & Player props with 58-62% probability
         </p>
 
         {/* Quick Stats */}
@@ -612,7 +517,7 @@ export default function Today() {
           gap: 8,
           flexWrap: "wrap",
         }}>
-          {["all", "corners", "shots", "cards"].map(f => (
+          {["all", "corners", "shots", "cards", "goals", "players"].map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -629,7 +534,7 @@ export default function Today() {
                 transition: "all 0.2s",
               }}
             >
-              {f}
+              {f === "players" ? "Player Props" : f}
             </button>
           ))}
         </div>
@@ -863,9 +768,11 @@ export default function Today() {
           }}>
             <li>Click "Track All" to save predictions to local storage for later verification</li>
             <li>Click "View Full Analysis" to see detailed team statistics</li>
-            <li>Use filters to focus on specific bet types (Corners, Shots, Cards)</li>
+            <li>Use filters to focus on specific bet types (Corners, Shots, Cards, Goals, Player Props)</li>
             <li>Click "Export JSON" to download all tracked predictions for external analysis</li>
-            <li>Predictions are automatically checked against live results when matches finish</li>
+            <li>All predictions use probability models from balldontlie.io EPL data</li>
+            <li>Player props show individual player statistics (goals, assists, shots, cards, etc.)</li>
+            <li>Match stats show combined team totals (corners, offsides, fouls, tackles, etc.)</li>
           </ul>
         </div>
       )}

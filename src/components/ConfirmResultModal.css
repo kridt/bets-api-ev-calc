@@ -1,0 +1,344 @@
+/* ConfirmResultModal.css */
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-container {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 600px;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  margin-bottom: 1.5rem;
+}
+
+.modal-title {
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.modal-title-icon {
+  font-size: 2rem;
+}
+
+.modal-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+/* Error State */
+.modal-error {
+  padding: 1.25rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.modal-error-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.modal-error-content {
+  flex: 1;
+}
+
+.modal-error-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--accent-red);
+  margin-bottom: 0.25rem;
+}
+
+.modal-error-message {
+  font-size: 0.875rem;
+  color: rgba(239, 68, 68, 0.8);
+}
+
+/* Success State */
+.modal-outcome-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: white;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.modal-outcome-badge.won {
+  background: var(--accent-emerald);
+  box-shadow: 0 8px 16px rgba(16, 185, 129, 0.4);
+}
+
+.modal-outcome-badge.lost {
+  background: var(--accent-red);
+  box-shadow: 0 8px 16px rgba(239, 68, 68, 0.4);
+}
+
+.modal-outcome-badge.push {
+  background: var(--accent-amber);
+  box-shadow: 0 8px 16px rgba(245, 158, 11, 0.4);
+}
+
+.modal-outcome-badge-icon {
+  font-size: 1.5rem;
+}
+
+.modal-game-info {
+  padding: 1.25rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--glass-border);
+}
+
+.modal-game-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.modal-game-icon {
+  font-size: 1.5rem;
+}
+
+.modal-game-meta {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.modal-game-meta-value {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.modal-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
+
+.modal-detail-item {
+  /* Grid items */
+}
+
+.modal-detail-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.25rem;
+}
+
+.modal-detail-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.modal-detail-value.large {
+  font-size: 1.5rem;
+  color: var(--accent-emerald);
+}
+
+.modal-detail-value.outcome-won {
+  color: var(--accent-emerald);
+}
+
+.modal-detail-value.outcome-lost {
+  color: var(--accent-red);
+}
+
+.modal-detail-value.outcome-push {
+  color: var(--accent-amber);
+}
+
+.modal-explanation {
+  padding: 1rem;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.modal-explanation.won {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.modal-explanation.lost {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.modal-explanation.push {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.modal-explanation-text {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.modal-explanation-label {
+  font-weight: 700;
+}
+
+.modal-explanation-result {
+  font-weight: 700;
+}
+
+.modal-explanation-result.won {
+  color: var(--accent-emerald);
+}
+
+.modal-explanation-result.lost {
+  color: var(--accent-red);
+}
+
+.modal-explanation-result.push {
+  color: var(--accent-amber);
+}
+
+/* Action Buttons */
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.modal-btn-confirm {
+  background: linear-gradient(135deg, var(--accent-emerald) 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.modal-btn-confirm:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.modal-btn-confirm:disabled {
+  background: rgba(100, 116, 139, 0.3);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.modal-btn-reject {
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+}
+
+.modal-btn-reject:not(:disabled):hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-2px);
+}
+
+.modal-btn-reject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-btn-close {
+  border: 1px solid var(--text-tertiary);
+  background: rgba(100, 116, 139, 0.2);
+  color: var(--text-secondary);
+}
+
+.modal-btn-close:hover {
+  background: rgba(100, 116, 139, 0.3);
+  transform: translateY(-2px);
+}
+
+.modal-btn-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  .modal-container {
+    padding: 1.5rem;
+  }
+
+  .modal-title {
+    font-size: 1.5rem;
+  }
+
+  .modal-outcome-badge {
+    font-size: 1rem;
+    padding: 0.625rem 1.25rem;
+  }
+
+  .modal-details-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-btn {
+    width: 100%;
+  }
+}
