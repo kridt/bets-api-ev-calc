@@ -108,11 +108,11 @@ export default function EPLMatch() {
                 opponent: teamsMap[opponentId]?.name || `Team ${opponentId}`,
                 isHome,
                 stats: {
-                  corners: teamStats.att_corner || 0,
+                  corners: teamStats.corner_taken || 0,
                   yellowCards: teamStats.total_yel_card || 0,
                   redCards: teamStats.red_card || 0,
                   shotsOnTarget: teamStats.ontarget_scoring_att || 0,
-                  shotsTotal: (teamStats.ontarget_scoring_att || 0) + (teamStats.shot_off_target || 0),
+                  shotsTotal: teamStats.total_scoring_att || 0,
                   offsides: teamStats.total_offside || 0,
                   fouls: teamStats.fk_foul_lost || 0,
                 },
