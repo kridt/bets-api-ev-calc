@@ -1,8 +1,23 @@
-// src/pages/EPLMatch.jsx - EPL Match Analysis with Last 10 Games Stats
+// src/pages/EPLMatch.jsx - EPL Match Analysis with Last 10 Games Stats (Direct API)
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 
-const API_BASE_URL = import.meta.env.VITE_FOOTBALL_API_URL || 'http://localhost:4000';
+const API_KEY = import.meta.env.VITE_BALLDONTLIE_API_KEY;
+const API_BASE = "https://api.balldontlie.io";
+
+async function bdFetch(url) {
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': API_KEY,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  return response.json();
+}
 
 export default function EPLMatch() {
   const { gameId } = useParams();
@@ -16,22 +31,68 @@ export default function EPLMatch() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`${API_BASE_URL}/api/epl/match/${gameId}/analysis`);
+        console.log('[EPLMatch] Fetching game', gameId);
 
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(err.error || `Failed to fetch: ${response.status}`);
+        // Fetch all teams first
+        const teamsResponse = await bdFetch(`${API_BASE}/epl/v1/teams`);
+        const teamsMap = {};
+        (teamsResponse.data || []).forEach(team => {
+          teamsMap[team.id] = team;
+        });
+
+        // Fetch recent games to find the match
+        const gamesUrl = new URL(`${API_BASE}/epl/v1/games`);
+        gamesUrl.searchParams.append("season", "2025");
+        gamesUrl.searchParams.append("per_page", "100");
+        const gamesResponse = await bdFetch(gamesUrl.toString());
+
+        const game = (gamesResponse.data || []).find(g => g.id === parseInt(gameId));
+        if (!game) {
+          throw new Error('Game not found');
         }
 
-        const result = await response.json();
-        console.log('[EPLMatch] API Response:', result);
-        console.log('[EPLMatch] Home team:', result.homeTeam?.name, '- Games:', result.homeTeam?.recentGames?.length);
-        console.log('[EPLMatch] Away team:', result.awayTeam?.name, '- Games:', result.awayTeam?.recentGames?.length);
-        if (result.homeTeam?.recentGames?.[0]) {
-          console.log('[EPLMatch] First home game opponent:', result.homeTeam.recentGames[0].opponent);
-          console.log('[EPLMatch] First home game stats:', result.homeTeam.recentGames[0].stats);
-        }
+        const homeTeam = teamsMap[game.home_team_id] || { id: game.home_team_id, name: `Team ${game.home_team_id}` };
+        const awayTeam = teamsMap[game.away_team_id] || { id: game.away_team_id, name: `Team ${game.away_team_id}` };
+
+        console.log('[EPLMatch] Found game:', homeTeam.name, 'vs', awayTeam.name);
+
+        // Fetch recent games for both teams
+        const [homeGames, awayGames] = await Promise.all([
+          fetchTeamRecentGames(game.home_team_id, teamsMap),
+          fetchTeamRecentGames(game.away_team_id, teamsMap),
+        ]);
+
+        console.log('[EPLMatch] Home games:', homeGames.length, 'Away games:', awayGames.length);
+
+        // Format data
+        const homeFormatted = formatGames(homeGames, game.home_team_id);
+        const awayFormatted = formatGames(awayGames, game.away_team_id);
+
+        const result = {
+          game: {
+            id: game.id,
+            kickoff: game.kickoff,
+            status: game.status,
+            homeTeam,
+            awayTeam,
+          },
+          homeTeam: {
+            name: homeTeam.name,
+            recentGames: homeFormatted,
+            averages: calculateAverages(homeFormatted),
+            gamesAnalyzed: homeFormatted.length,
+          },
+          awayTeam: {
+            name: awayTeam.name,
+            recentGames: awayFormatted,
+            averages: calculateAverages(awayFormatted),
+            gamesAnalyzed: awayFormatted.length,
+          },
+        };
+
+        console.log('[EPLMatch] Result:', result);
         setData(result);
+
       } catch (e) {
         console.error('[EPLMatch] Error:', e);
         setError(e.message);
@@ -42,6 +103,116 @@ export default function EPLMatch() {
 
     fetchAnalysis();
   }, [gameId]);
+
+  async function fetchTeamRecentGames(teamId, teamsMap) {
+    const endDate = new Date().toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    const url = new URL(`${API_BASE}/epl/v1/games`);
+    url.searchParams.append("season", "2025");
+    url.searchParams.append("start_date", startDate);
+    url.searchParams.append("end_date", endDate);
+    url.searchParams.append("team_ids[]", teamId);
+    url.searchParams.append("per_page", "20");
+
+    const response = await bdFetch(url.toString());
+
+    // Filter completed games
+    const completedGames = (response.data || []).filter(
+      g => g.status === "FullTime" || g.status === "FT"
+    );
+
+    const gamesWithStats = [];
+
+    // Fetch stats for each game (limit to 10)
+    for (const game of completedGames.slice(0, 10)) {
+      try {
+        const statsUrl = `${API_BASE}/epl/v1/games/${game.id}/team_stats`;
+        const statsResponse = await bdFetch(statsUrl);
+
+        const teams = statsResponse.data?.teams || [];
+        let homeStats = {};
+        let awayStats = {};
+
+        for (const team of teams) {
+          const statsObj = {};
+          (team.stats || []).forEach(stat => {
+            if (stat.name && stat.value !== undefined) {
+              statsObj[stat.name] = stat.value;
+            }
+          });
+
+          if (team.team_id === game.home_team_id) {
+            homeStats = statsObj;
+          } else {
+            awayStats = statsObj;
+          }
+        }
+
+        gamesWithStats.push({
+          ...game,
+          home_team: teamsMap[game.home_team_id] || { id: game.home_team_id, name: `Team ${game.home_team_id}` },
+          away_team: teamsMap[game.away_team_id] || { id: game.away_team_id, name: `Team ${game.away_team_id}` },
+          home_team_stats: homeStats,
+          away_team_stats: awayStats,
+        });
+
+      } catch (err) {
+        console.error(`[EPLMatch] Error fetching stats for game ${game.id}:`, err);
+      }
+    }
+
+    return gamesWithStats;
+  }
+
+  function formatGames(games, teamId) {
+    return games.map(g => {
+      const isHome = g.home_team_id === teamId;
+      const teamStats = isHome ? g.home_team_stats : g.away_team_stats;
+
+      return {
+        gameId: g.id,
+        date: g.kickoff,
+        opponent: isHome ? g.away_team?.name : g.home_team?.name,
+        isHome,
+        stats: {
+          corners: teamStats?.att_corner || teamStats?.corner_taken || 0,
+          yellowCards: teamStats?.total_yel_card || 0,
+          redCards: teamStats?.red_card || 0,
+          shotsOnTarget: teamStats?.ontarget_scoring_att || 0,
+          shotsTotal: (teamStats?.ontarget_scoring_att || 0) + (teamStats?.shot_off_target || 0),
+          offsides: teamStats?.total_offside || 0,
+          fouls: teamStats?.fk_foul_lost || 0,
+          possession: teamStats?.possession_percentage || 0,
+        },
+      };
+    });
+  }
+
+  function calculateAverages(games) {
+    if (games.length === 0) return null;
+
+    const sum = games.reduce((acc, g) => ({
+      corners: acc.corners + g.stats.corners,
+      yellowCards: acc.yellowCards + g.stats.yellowCards,
+      redCards: acc.redCards + g.stats.redCards,
+      shotsOnTarget: acc.shotsOnTarget + g.stats.shotsOnTarget,
+      shotsTotal: acc.shotsTotal + g.stats.shotsTotal,
+      offsides: acc.offsides + g.stats.offsides,
+      fouls: acc.fouls + g.stats.fouls,
+    }), { corners: 0, yellowCards: 0, redCards: 0, shotsOnTarget: 0, shotsTotal: 0, offsides: 0, fouls: 0 });
+
+    const count = games.length;
+    return {
+      corners: (sum.corners / count).toFixed(1),
+      yellowCards: (sum.yellowCards / count).toFixed(1),
+      redCards: (sum.redCards / count).toFixed(1),
+      shotsOnTarget: (sum.shotsOnTarget / count).toFixed(1),
+      shotsTotal: (sum.shotsTotal / count).toFixed(1),
+      offsides: (sum.offsides / count).toFixed(1),
+      fouls: (sum.fouls / count).toFixed(1),
+    };
+  }
 
   if (loading) {
     return (
@@ -64,6 +235,9 @@ export default function EPLMatch() {
           }} />
           <div style={{ fontSize: 18, fontWeight: 600, color: "#e2e8f0" }}>
             Loading Match Analysis...
+          </div>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
+            Fetching data from Ball Don't Lie API
           </div>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
@@ -198,52 +372,14 @@ export default function EPLMatch() {
           Statistics Comparison (Last {Math.max(homeTeam.gamesAnalyzed, awayTeam.gamesAnalyzed)} Games)
         </h3>
 
-        <div style={{
-          display: "grid",
-          gap: 12,
-        }}>
-          <StatsComparisonRow
-            label="Corners"
-            emoji="🚩"
-            home={homeTeam.averages?.corners}
-            away={awayTeam.averages?.corners}
-          />
-          <StatsComparisonRow
-            label="Shots on Target"
-            emoji="🎯"
-            home={homeTeam.averages?.shotsOnTarget}
-            away={awayTeam.averages?.shotsOnTarget}
-          />
-          <StatsComparisonRow
-            label="Total Shots"
-            emoji="⚽"
-            home={homeTeam.averages?.shotsTotal}
-            away={awayTeam.averages?.shotsTotal}
-          />
-          <StatsComparisonRow
-            label="Yellow Cards"
-            emoji="🟨"
-            home={homeTeam.averages?.yellowCards}
-            away={awayTeam.averages?.yellowCards}
-          />
-          <StatsComparisonRow
-            label="Red Cards"
-            emoji="🟥"
-            home={homeTeam.averages?.redCards}
-            away={awayTeam.averages?.redCards}
-          />
-          <StatsComparisonRow
-            label="Offsides"
-            emoji="🏴"
-            home={homeTeam.averages?.offsides}
-            away={awayTeam.averages?.offsides}
-          />
-          <StatsComparisonRow
-            label="Fouls"
-            emoji="🚨"
-            home={homeTeam.averages?.fouls}
-            away={awayTeam.averages?.fouls}
-          />
+        <div style={{ display: "grid", gap: 12 }}>
+          <StatsComparisonRow label="Corners" emoji="🚩" home={homeTeam.averages?.corners} away={awayTeam.averages?.corners} />
+          <StatsComparisonRow label="Shots on Target" emoji="🎯" home={homeTeam.averages?.shotsOnTarget} away={awayTeam.averages?.shotsOnTarget} />
+          <StatsComparisonRow label="Total Shots" emoji="⚽" home={homeTeam.averages?.shotsTotal} away={awayTeam.averages?.shotsTotal} />
+          <StatsComparisonRow label="Yellow Cards" emoji="🟨" home={homeTeam.averages?.yellowCards} away={awayTeam.averages?.yellowCards} />
+          <StatsComparisonRow label="Red Cards" emoji="🟥" home={homeTeam.averages?.redCards} away={awayTeam.averages?.redCards} />
+          <StatsComparisonRow label="Offsides" emoji="🏴" home={homeTeam.averages?.offsides} away={awayTeam.averages?.offsides} />
+          <StatsComparisonRow label="Fouls" emoji="🚨" home={homeTeam.averages?.fouls} away={awayTeam.averages?.fouls} />
         </div>
 
         <div style={{
@@ -254,7 +390,7 @@ export default function EPLMatch() {
           fontSize: 12,
           color: "#94a3b8",
         }}>
-          Combined prediction: {parseFloat(homeTeam.averages?.corners || 0) + parseFloat(awayTeam.averages?.corners || 0)} corners
+          Combined corners prediction: {(parseFloat(homeTeam.averages?.corners || 0) + parseFloat(awayTeam.averages?.corners || 0)).toFixed(1)}
         </div>
       </div>
 
@@ -262,7 +398,7 @@ export default function EPLMatch() {
       <div style={{
         display: "grid",
         gap: 24,
-        gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
       }}>
         {/* Home Team Recent Games */}
         <div style={{
