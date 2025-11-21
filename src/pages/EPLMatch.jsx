@@ -24,6 +24,13 @@ export default function EPLMatch() {
         }
 
         const result = await response.json();
+        console.log('[EPLMatch] API Response:', result);
+        console.log('[EPLMatch] Home team:', result.homeTeam?.name, '- Games:', result.homeTeam?.recentGames?.length);
+        console.log('[EPLMatch] Away team:', result.awayTeam?.name, '- Games:', result.awayTeam?.recentGames?.length);
+        if (result.homeTeam?.recentGames?.[0]) {
+          console.log('[EPLMatch] First home game opponent:', result.homeTeam.recentGames[0].opponent);
+          console.log('[EPLMatch] First home game stats:', result.homeTeam.recentGames[0].stats);
+        }
         setData(result);
       } catch (e) {
         console.error('[EPLMatch] Error:', e);
