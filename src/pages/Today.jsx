@@ -271,7 +271,7 @@ function PredictionCard({ match, predictions, onTrack }) {
         gap: 12,
       }}>
         <Link
-          to={`/match/${match.id}`}
+          to={`/epl/match/${match.id}`}
           style={{
             flex: 1,
             padding: "10px 16px",
