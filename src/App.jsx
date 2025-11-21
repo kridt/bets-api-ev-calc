@@ -5,6 +5,7 @@ export default function App() {
   const location = useLocation();
   const isBasketball = location.pathname.startsWith('/basketball');
   const isToday = location.pathname === '/' || location.pathname === '/today';
+  const isResults = location.pathname === '/results';
 
   return (
     <div
@@ -125,6 +126,22 @@ export default function App() {
                 }}
               >
                 🏀 NBA Props
+              </Link>
+              <Link
+                to="/results"
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 12,
+                  textDecoration: "none",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  background: isResults ? "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)" : "rgba(100, 116, 139, 0.2)",
+                  color: isResults ? "#fff" : "#94a3b8",
+                  border: `1px solid ${isResults ? "rgba(139, 92, 246, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
+                  transition: "all 0.3s",
+                }}
+              >
+                📊 Results
               </Link>
             </nav>
           </div>
