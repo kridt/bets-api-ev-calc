@@ -36,6 +36,8 @@ export default function EPLValueBets() {
   const [selectedLeague, setSelectedLeague] = useState('all');
   const [sortBy, setSortBy] = useState('ev_high');
   const [minEV, setMinEV] = useState(0);
+  const [availableBookmakers, setAvailableBookmakers] = useState([]);
+  const [selectedBookmakers, setSelectedBookmakers] = useState([]);
 
   useEffect(() => {
     fetchValueBets();
@@ -46,15 +48,53 @@ export default function EPLValueBets() {
     if (matches.length > 0) {
       applyFiltersAndSort(matches);
     }
-  }, [maxOdds, sortBy, minEV]);
+  }, [maxOdds, sortBy, minEV, selectedBookmakers]);
 
   function applyFiltersAndSort(matchList) {
     let processed = matchList.map(match => {
-      // Filter value bets by odds and EV
+      // Filter value bets by odds, EV, and selected bookmakers
       const filteredBets = match.valueBets.filter(bet => {
         const odds = bet.bestOdds?.odds || bet.bestOdds;
         const ev = bet.bestOdds?.ev || 0;
-        return odds <= maxOdds && ev >= minEV;
+        const bookmaker = bet.bestOdds?.bookmaker || '';
+
+        // Check if bet passes basic filters
+        if (odds > maxOdds || ev < minEV) return false;
+
+        // If no bookmakers selected, show all. Otherwise filter by selected.
+        if (selectedBookmakers.length > 0) {
+          // Check if any of the bet's bookmakers match selected ones
+          const betBookmakers = (bet.allBookmakers || []).map(b => b.bookmaker);
+          const hasSelectedBookmaker = selectedBookmakers.some(sb =>
+            betBookmakers.includes(sb) || bookmaker === sb
+          );
+          if (!hasSelectedBookmaker) return false;
+        }
+
+        return true;
+      }).map(bet => {
+        // If bookmakers are filtered, recalculate best odds from selected bookmakers only
+        if (selectedBookmakers.length > 0 && bet.allBookmakers?.length > 0) {
+          const filteredBookmakers = bet.allBookmakers.filter(b =>
+            selectedBookmakers.includes(b.bookmaker)
+          );
+          if (filteredBookmakers.length > 0) {
+            const best = filteredBookmakers.reduce((best, curr) =>
+              curr.odds > best.odds ? curr : best
+            );
+            return {
+              ...bet,
+              bestOdds: {
+                ...bet.bestOdds,
+                bookmaker: best.bookmaker,
+                odds: best.odds,
+                ev: best.ev || bet.bestOdds.ev
+              },
+              filteredBookmakers
+            };
+          }
+        }
+        return { ...bet, filteredBookmakers: bet.allBookmakers };
       });
 
       if (filteredBets.length === 0) return null;
@@ -166,6 +206,20 @@ export default function EPLValueBets() {
       }));
 
       console.log(`✅ Received ${transformedMatches.length} matches with value bets`);
+
+      // Extract unique bookmakers from all bets
+      const bookmakerSet = new Set();
+      transformedMatches.forEach(match => {
+        match.valueBets.forEach(bet => {
+          if (bet.bestOdds?.bookmaker) bookmakerSet.add(bet.bestOdds.bookmaker);
+          (bet.allBookmakers || []).forEach(b => {
+            if (b.bookmaker) bookmakerSet.add(b.bookmaker);
+          });
+        });
+      });
+      const uniqueBookmakers = Array.from(bookmakerSet).sort();
+      console.log(`📚 Found ${uniqueBookmakers.length} bookmakers:`, uniqueBookmakers);
+      setAvailableBookmakers(uniqueBookmakers);
 
       setMatches(transformedMatches);
       applyFiltersAndSort(transformedMatches);
@@ -410,6 +464,75 @@ export default function EPLValueBets() {
             </button>
           ))}
         </div>
+
+        {/* Bookmaker Filter */}
+        {availableBookmakers.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 10
+            }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>
+                🏢 Bookmakers {selectedBookmakers.length > 0 && `(${selectedBookmakers.length} selected)`}
+              </div>
+              {selectedBookmakers.length > 0 && (
+                <button
+                  onClick={() => setSelectedBookmakers([])}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    color: '#ef4444',
+                    fontWeight: 500,
+                    fontSize: 11,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {availableBookmakers.map(bookmaker => {
+                const isSelected = selectedBookmakers.includes(bookmaker);
+                return (
+                  <button
+                    key={bookmaker}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedBookmakers(prev => prev.filter(b => b !== bookmaker));
+                      } else {
+                        setSelectedBookmakers(prev => [...prev, bookmaker]);
+                      }
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 10,
+                      border: isSelected ? '2px solid #10b981' : '1px solid rgba(100, 116, 139, 0.3)',
+                      background: isSelected
+                        ? 'rgba(16, 185, 129, 0.2)'
+                        : 'rgba(30, 41, 59, 0.6)',
+                      color: isSelected ? '#10b981' : '#94a3b8',
+                      fontWeight: 600,
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                  >
+                    {isSelected && <span>✓</span>}
+                    {bookmaker}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         {stats && (

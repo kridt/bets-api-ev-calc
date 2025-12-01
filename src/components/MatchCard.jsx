@@ -201,7 +201,7 @@ function ValueBetItem({ bet, matchData, isExpanded, onToggle }) {
               {bet.prediction.selection.toUpperCase()} {formatLine(bet.prediction.line)}
             </div>
             <div style={{ fontSize: 12, color: '#94a3b8' }}>
-              Our probability: {bet.prediction.probability.toFixed(1)}% (fair odds: {calculateDecimalOdds(bet.prediction.probability)})
+              Our probability: {bet.prediction.probability.toFixed(1)}% • <span style={{ color: '#10b981', fontWeight: 600 }}>{bet.bestOdds.bookmaker || 'Best Available'}</span> @ {bet.bestOdds.odds?.toFixed(2)}
             </div>
           </div>
 
@@ -348,7 +348,7 @@ function ValueBetItem({ bet, matchData, isExpanded, onToggle }) {
               • Statistical probability: <strong style={{ color: '#e2e8f0' }}>{bet.prediction.probability.toFixed(1)}%</strong> <span style={{ color: '#64748b' }}>({calculateDecimalOdds(bet.prediction.probability)} odds)</span>
             </div>
             <div style={{ color: '#94a3b8', marginBottom: 6 }}>
-              • Bookmaker probability: <strong style={{ color: '#e2e8f0' }}>{impliedProbability.toFixed(1)}%</strong> <span style={{ color: '#64748b' }}>({bet.bestOdds.odds.toFixed(2)} odds)</span>
+              • <span style={{ color: '#10b981', fontWeight: 600 }}>{bet.bestOdds.bookmaker || 'Bookmaker'}</span> probability: <strong style={{ color: '#e2e8f0' }}>{impliedProbability.toFixed(1)}%</strong> <span style={{ color: '#64748b' }}>({bet.bestOdds.odds.toFixed(2)} odds)</span>
             </div>
             <div style={{ color: '#10b981', fontWeight: 600 }}>
               ✅ You have a +{probabilityDifference.toFixed(1)}% edge
