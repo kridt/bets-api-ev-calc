@@ -6,7 +6,15 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+# Environment files (CRITICAL - never commit)
 .env
+.env.local
+.env*.local
+.env.vercel
+.env.production
+
+# Node
 node_modules
 dist
 dist-ssr
@@ -23,6 +31,16 @@ dist-ssr
 *.sln
 *.sw?
 
+# Vercel
 .vercel
-.env*.local
-.env.vercel
+
+# Firebase credentials (CRITICAL - never commit)
+**/serviceAccountKey.json
+**/firebase-adminsdk*.json
+**/*-firebase-adminsdk-*.json
+
+# API keys and secrets
+*.pem
+*.key
+credentials.json
+secrets.json

@@ -1,5 +1,6 @@
 // src/utils/footballApi.js - API client for balldontlie EPL football data
 
+// Must be set in Vercel env vars for production
 const API_BASE_URL = import.meta.env.VITE_FOOTBALL_API_URL || 'http://localhost:4000';
 
 /**

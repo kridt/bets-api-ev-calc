@@ -4,7 +4,7 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 export default function App() {
   const location = useLocation();
   const isBasketball = location.pathname.startsWith('/basketball');
-  const isToday = location.pathname === '/' || location.pathname === '/today';
+  const isHome = location.pathname === '/';
   const isResults = location.pathname === '/results';
 
   return (
@@ -103,13 +103,13 @@ export default function App() {
                   textDecoration: "none",
                   fontWeight: 600,
                   fontSize: 14,
-                  background: isToday ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : "rgba(100, 116, 139, 0.2)",
-                  color: isToday ? "#fff" : "#94a3b8",
-                  border: `1px solid ${isToday ? "rgba(16, 185, 129, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
+                  background: isHome ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : "rgba(100, 116, 139, 0.2)",
+                  color: isHome ? "#fff" : "#94a3b8",
+                  border: `1px solid ${isHome ? "rgba(16, 185, 129, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
                   transition: "all 0.3s",
                 }}
               >
-                ⚽ EPL Bets
+                ⚽ EPL Value Bets
               </Link>
               <Link
                 to="/basketball"
