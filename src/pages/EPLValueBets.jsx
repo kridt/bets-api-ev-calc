@@ -1,10 +1,24 @@
-// src/pages/EPLValueBets.jsx - Multi-League Value Bets from Firebase (Server-side calculated)
+// src/pages/EPLValueBets.jsx - Multi-League Value Bets with Sorting & Filtering
 import { useState, useEffect } from 'react';
 import MatchCard from '../components/MatchCard.jsx';
 
-// League configurations - Only EPL is currently supported by the backend API
+// League configurations
 const LEAGUES = [
-  { id: 'epl', name: 'Premier League', emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', code: 'PL' }
+  { id: 'all', name: 'All Leagues', emoji: '🌍', code: null, available: true },
+  { id: 'epl', name: 'Premier League', emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', code: 'PL', available: true },
+  { id: 'laliga', name: 'La Liga', emoji: '🇪🇸', code: 'PD', available: false },
+  { id: 'bundesliga', name: 'Bundesliga', emoji: '🇩🇪', code: 'BL1', available: false },
+  { id: 'seriea', name: 'Serie A', emoji: '🇮🇹', code: 'SA', available: false },
+  { id: 'ligue1', name: 'Ligue 1', emoji: '🇫🇷', code: 'FL1', available: false },
+];
+
+// Sort options
+const SORT_OPTIONS = [
+  { id: 'ev_high', label: 'EV% High → Low', icon: '📈' },
+  { id: 'ev_low', label: 'EV% Low → High', icon: '📉' },
+  { id: 'odds_low', label: 'Odds Low → High', icon: '🎯' },
+  { id: 'odds_high', label: 'Odds High → Low', icon: '💰' },
+  { id: 'prob_high', label: 'Probability High', icon: '📊' },
 ];
 
 // API base URL - must be set in Vercel env vars for production
@@ -19,40 +33,70 @@ export default function EPLValueBets() {
   const [stats, setStats] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [maxOdds, setMaxOdds] = useState(3.0);
-  const [selectedLeague, setSelectedLeague] = useState('epl');
+  const [selectedLeague, setSelectedLeague] = useState('all');
+  const [sortBy, setSortBy] = useState('ev_high');
+  const [minEV, setMinEV] = useState(0);
 
   useEffect(() => {
     fetchValueBets();
   }, [selectedLeague]);
 
-  // Filter matches when maxOdds changes
+  // Filter and sort matches when filters change
   useEffect(() => {
     if (matches.length > 0) {
-      filterMatchesByMaxOdds(matches, maxOdds);
+      applyFiltersAndSort(matches);
     }
-  }, [maxOdds]);
+  }, [maxOdds, sortBy, minEV]);
 
-  function filterMatchesByMaxOdds(matchList, maxOddsThreshold) {
-    const filtered = matchList.map(match => {
-      // Filter value bets to only include those with odds <= maxOddsThreshold
-      // Note: bestOdds is an object with { odds, bookmaker, ev, url }
+  function applyFiltersAndSort(matchList) {
+    let processed = matchList.map(match => {
+      // Filter value bets by odds and EV
       const filteredBets = match.valueBets.filter(bet => {
         const odds = bet.bestOdds?.odds || bet.bestOdds;
-        return odds <= maxOddsThreshold;
+        const ev = bet.bestOdds?.ev || 0;
+        return odds <= maxOdds && ev >= minEV;
       });
 
       if (filteredBets.length === 0) return null;
 
+      // Sort bets within match based on sortBy
+      const sortedBets = [...filteredBets].sort((a, b) => {
+        const evA = a.bestOdds?.ev || 0;
+        const evB = b.bestOdds?.ev || 0;
+        const oddsA = a.bestOdds?.odds || 0;
+        const oddsB = b.bestOdds?.odds || 0;
+        const probA = a.prediction?.probability || 0;
+        const probB = b.prediction?.probability || 0;
+
+        switch (sortBy) {
+          case 'ev_high': return evB - evA;
+          case 'ev_low': return evA - evB;
+          case 'odds_low': return oddsA - oddsB;
+          case 'odds_high': return oddsB - oddsA;
+          case 'prob_high': return probB - probA;
+          default: return evB - evA;
+        }
+      });
+
       return {
         ...match,
-        valueBets: filteredBets,
-        totalEV: filteredBets.reduce((sum, bet) => sum + (bet.bestOdds?.ev || 0), 0),
-        bestEV: Math.max(...filteredBets.map(bet => bet.bestOdds?.ev || 0))
+        valueBets: sortedBets,
+        totalEV: sortedBets.reduce((sum, bet) => sum + (bet.bestOdds?.ev || 0), 0),
+        bestEV: Math.max(...sortedBets.map(bet => bet.bestOdds?.ev || 0))
       };
     }).filter(match => match !== null);
 
-    console.log(`🎯 Filtered to ${filtered.length} matches with odds <= ${maxOddsThreshold}`);
-    setFilteredMatches(filtered);
+    // Sort matches by best EV
+    processed.sort((a, b) => {
+      switch (sortBy) {
+        case 'ev_high': return b.bestEV - a.bestEV;
+        case 'ev_low': return a.bestEV - b.bestEV;
+        default: return b.bestEV - a.bestEV;
+      }
+    });
+
+    console.log(`🎯 Filtered to ${processed.length} matches, ${processed.reduce((s, m) => s + m.valueBets.length, 0)} bets`);
+    setFilteredMatches(processed);
   }
 
   async function fetchValueBets() {
@@ -60,8 +104,17 @@ export default function EPLValueBets() {
       setLoading(true);
       setError(null);
 
-      const leagueParam = `&league=${LEAGUES.find(l => l.id === selectedLeague)?.code || 'PL'}`;
-      const url = `${API_BASE_URL}/api/ev-bets?minEV=0&maxOdds=${maxOdds}&limit=100${leagueParam}`;
+      const league = LEAGUES.find(l => l.id === selectedLeague);
+      if (league && !league.available && selectedLeague !== 'all') {
+        setMatches([]);
+        setFilteredMatches([]);
+        setStats({ totalMatches: 0, valueBetsCount: 0, avgEV: 0 });
+        setLoading(false);
+        return;
+      }
+
+      const leagueParam = selectedLeague === 'all' ? '' : `&league=${league?.code || 'PL'}`;
+      const url = `${API_BASE_URL}/api/ev-bets?minEV=0&maxOdds=10&limit=100${leagueParam}`;
 
       console.log(`📊 Fetching value bets from: ${url}`);
       const response = await fetch(url);
@@ -115,7 +168,7 @@ export default function EPLValueBets() {
       console.log(`✅ Received ${transformedMatches.length} matches with value bets`);
 
       setMatches(transformedMatches);
-      filterMatchesByMaxOdds(transformedMatches, maxOdds);
+      applyFiltersAndSort(transformedMatches);
       setLastUpdated(data.generatedAt || new Date().toISOString());
 
       setStats({
@@ -144,8 +197,7 @@ export default function EPLValueBets() {
       const data = await response.json();
 
       if (data.success) {
-        console.log(`✅ Refresh complete: ${data.stats?.valueBetsFound || 0} value bets found`);
-        // Refetch the updated data
+        console.log(`✅ Refresh complete`);
         await fetchValueBets();
       } else {
         console.error('Refresh failed:', data.error);
@@ -165,18 +217,7 @@ export default function EPLValueBets() {
           Loading Value Bets...
         </div>
         <div style={{ fontSize: 14, color: '#94a3b8', marginBottom: 24 }}>
-          Fetching pre-calculated EV bets from database
-        </div>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          alignItems: 'center',
-          fontSize: 13,
-          color: '#64748b'
-        }}>
-          <div>📊 Getting active value bets...</div>
-          <div>💾 Loading from Firebase...</div>
+          Fetching pre-calculated EV bets from server
         </div>
       </div>
     );
@@ -195,33 +236,19 @@ export default function EPLValueBets() {
         <div style={{ fontSize: 18, color: '#ef4444', marginBottom: 8 }}>
           Error Loading Value Bets
         </div>
-        <div style={{ fontSize: 14, color: '#94a3b8' }}>
-          {error}
-        </div>
-        <button
-          onClick={fetchValueBets}
-          style={{
-            marginTop: 16,
-            padding: '12px 24px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            border: 'none',
-            borderRadius: 12,
-            color: 'white',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}
-        >
-          Retry
-        </button>
+        <div style={{ fontSize: 14, color: '#94a3b8' }}>{error}</div>
+        <button onClick={fetchValueBets} style={buttonStyle}>Retry</button>
       </div>
     );
   }
+
+  const selectedLeagueData = LEAGUES.find(l => l.id === selectedLeague);
 
   return (
     <div>
       {/* Header */}
       <div style={{
-        marginBottom: 32,
+        marginBottom: 24,
         padding: 24,
         background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%)',
         borderRadius: 20,
@@ -238,30 +265,106 @@ export default function EPLValueBets() {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}>
-              Premier League Value Bets
+              Football Value Bets
             </h1>
             <p style={{ fontSize: 14, color: '#94a3b8', margin: '4px 0 0 0' }}>
-              Server-calculated EV bets • Updated every 2 minutes
+              Statistical edge finder • Updated every 2 hours
             </p>
           </div>
         </div>
 
-        {/* Max Odds Filter */}
-        <div style={{ marginTop: 16, marginBottom: 12 }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 8
-          }}>
-            <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              🎲 Max Odds Filter
-            </div>
-            <div style={{ fontSize: 14, color: '#10b981', fontWeight: 700 }}>
-              ≤ {maxOdds.toFixed(1)}
-            </div>
+        {/* League Selector */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>
+            ⚽ League
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {LEAGUES.map(league => (
+              <button
+                key={league.id}
+                onClick={() => league.available && setSelectedLeague(league.id)}
+                disabled={!league.available}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: selectedLeague === league.id
+                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                    : league.available ? 'rgba(100, 116, 139, 0.2)' : 'rgba(100, 116, 139, 0.1)',
+                  color: selectedLeague === league.id ? 'white' : league.available ? '#94a3b8' : '#64748b',
+                  fontWeight: 600,
+                  fontSize: 12,
+                  cursor: league.available ? 'pointer' : 'not-allowed',
+                  opacity: league.available ? 1 : 0.6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <span>{league.emoji}</span>
+                <span>{league.name}</span>
+                {!league.available && <span style={{ fontSize: 10, opacity: 0.7 }}>Soon</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sort & Filter Controls */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 16 }}>
+          {/* Sort By */}
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>
+              📊 Sort By
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid rgba(100, 116, 139, 0.3)',
+                background: 'rgba(30, 41, 59, 0.8)',
+                color: 'white',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              {SORT_OPTIONS.map(opt => (
+                <option key={opt.id} value={opt.id}>{opt.icon} {opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Min EV Filter */}
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>
+              💰 Min EV%: {minEV}%
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              step="1"
+              value={minEV}
+              onChange={(e) => setMinEV(parseInt(e.target.value))}
+              style={{
+                width: '100%',
+                height: 6,
+                borderRadius: 3,
+                background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${minEV * 10}%, rgba(100, 116, 139, 0.3) ${minEV * 10}%, rgba(100, 116, 139, 0.3) 100%)`,
+                appearance: 'none',
+                cursor: 'pointer'
+              }}
+            />
+          </div>
+
+          {/* Max Odds Filter */}
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>
+              🎲 Max Odds: {maxOdds.toFixed(1)}
+            </div>
             <input
               type="range"
               min="1.5"
@@ -270,58 +373,57 @@ export default function EPLValueBets() {
               value={maxOdds}
               onChange={(e) => setMaxOdds(parseFloat(e.target.value))}
               style={{
-                flex: 1,
+                width: '100%',
                 height: 6,
                 borderRadius: 3,
-                outline: 'none',
-                background: `linear-gradient(to right, #10b981 0%, #10b981 ${((maxOdds - 1.5) / (10 - 1.5)) * 100}%, rgba(100, 116, 139, 0.3) ${((maxOdds - 1.5) / (10 - 1.5)) * 100}%, rgba(100, 116, 139, 0.3) 100%)`,
+                background: `linear-gradient(to right, #10b981 0%, #10b981 ${((maxOdds - 1.5) / 8.5) * 100}%, rgba(100, 116, 139, 0.3) ${((maxOdds - 1.5) / 8.5) * 100}%, rgba(100, 116, 139, 0.3) 100%)`,
                 appearance: 'none',
                 cursor: 'pointer'
               }}
             />
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[2.0, 3.0, 5.0].map(preset => (
-                <button
-                  key={preset}
-                  onClick={() => setMaxOdds(preset)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: maxOdds === preset
-                      ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                      : 'rgba(100, 116, 139, 0.2)',
-                    color: maxOdds === preset ? 'white' : '#94a3b8',
-                    fontWeight: 600,
-                    fontSize: 11,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
           </div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 8, fontStyle: 'italic' }}>
-            💡 Lower odds = higher probability but smaller payouts
-          </div>
+        </div>
+
+        {/* Quick Filters */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+          <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center' }}>Quick:</span>
+          {[
+            { label: 'Safe (1.5-2.0)', maxOdds: 2.0, minEV: 3 },
+            { label: 'Balanced (2.0-3.0)', maxOdds: 3.0, minEV: 4 },
+            { label: 'Value (3.0+)', maxOdds: 10, minEV: 5 },
+          ].map(preset => (
+            <button
+              key={preset.label}
+              onClick={() => { setMaxOdds(preset.maxOdds); setMinEV(preset.minEV); }}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 8,
+                border: 'none',
+                background: 'rgba(100, 116, 139, 0.2)',
+                color: '#94a3b8',
+                fontWeight: 500,
+                fontSize: 11,
+                cursor: 'pointer'
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
 
         {/* Stats */}
         {stats && (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: 12,
-            marginTop: 16
+            gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+            gap: 12
           }}>
-            <StatBox label="Matches" value={stats.totalMatches} color="#667eea" />
-            <StatBox label="Value Bets" value={stats.valueBetsCount} color="#f59e0b" />
+            <StatBox label="Matches" value={filteredMatches.length} color="#667eea" />
+            <StatBox label="Value Bets" value={filteredMatches.reduce((s, m) => s + m.valueBets.length, 0)} color="#f59e0b" />
             <StatBox label="Avg EV" value={`${stats.avgEV.toFixed(1)}%`} color="#ec4899" />
             {lastUpdated && (
               <StatBox
-                label="Last Update"
+                label="Updated"
                 value={new Date(lastUpdated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                 color="#10b981"
               />
@@ -330,103 +432,84 @@ export default function EPLValueBets() {
         )}
       </div>
 
-      {/* Value Bets List */}
-      {filteredMatches.length === 0 ? (
+      {/* Unavailable League Message */}
+      {selectedLeagueData && !selectedLeagueData.available && selectedLeague !== 'all' && (
         <div style={{
-          padding: 60,
+          padding: 40,
           textAlign: 'center',
-          background: 'rgba(30, 41, 59, 0.5)',
+          background: 'rgba(251, 191, 36, 0.1)',
           borderRadius: 20,
-          border: '1px solid rgba(255, 255, 255, 0.1)'
+          border: '1px solid rgba(251, 191, 36, 0.3)',
+          marginBottom: 24
         }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>😔</div>
-          <div style={{ fontSize: 18, color: '#94a3b8', marginBottom: 8 }}>
-            No value bets found right now
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🚧</div>
+          <div style={{ fontSize: 20, color: '#fbbf24', fontWeight: 700, marginBottom: 8 }}>
+            {selectedLeagueData.name} Coming Soon
           </div>
-          <div style={{ fontSize: 14, color: '#64748b', marginBottom: 20 }}>
-            The server scans for value bets every 2 minutes. Try refreshing or check back later.
-          </div>
-          <button
-            onClick={triggerRefresh}
-            disabled={refreshing}
-            style={{
-              padding: '12px 24px',
-              background: refreshing
-                ? 'rgba(100, 116, 139, 0.3)'
-                : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              border: 'none',
-              borderRadius: 12,
-              color: 'white',
-              fontWeight: 600,
-              cursor: refreshing ? 'wait' : 'pointer'
-            }}
-          >
-            {refreshing ? '🔄 Scanning...' : '🔄 Trigger Scan'}
-          </button>
-        </div>
-      ) : (
-        <div>
-          <div style={{
-            marginBottom: 20,
-            padding: 16,
-            background: 'rgba(16, 185, 129, 0.1)',
-            borderRadius: 12,
-            fontSize: 14,
-            color: '#10b981',
-            fontWeight: 600,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <span>💰 Found {stats.valueBetsCount} value bets across {filteredMatches.length} matches</span>
-            <span style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}>
-              Auto-updates every 2 minutes
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gap: 24 }}>
-            {filteredMatches.map((matchData, index) => (
-              <MatchCard key={`${matchData.match.home}-${matchData.match.away}-${index}`} matchData={matchData} rank={index + 1} />
-            ))}
+          <div style={{ fontSize: 14, color: '#94a3b8' }}>
+            We're working on adding {selectedLeagueData.name} data. Currently only Premier League is available.
           </div>
         </div>
       )}
 
+      {/* Value Bets List */}
+      {(selectedLeagueData?.available || selectedLeague === 'all') && (
+        <>
+          {filteredMatches.length === 0 ? (
+            <div style={{
+              padding: 60,
+              textAlign: 'center',
+              background: 'rgba(30, 41, 59, 0.5)',
+              borderRadius: 20,
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>😔</div>
+              <div style={{ fontSize: 18, color: '#94a3b8', marginBottom: 8 }}>
+                No value bets match your filters
+              </div>
+              <div style={{ fontSize: 14, color: '#64748b', marginBottom: 20 }}>
+                Try adjusting Max Odds or Min EV%, or wait for new matches.
+              </div>
+              <button onClick={triggerRefresh} disabled={refreshing} style={buttonStyle}>
+                {refreshing ? '🔄 Scanning...' : '🔄 Trigger Scan'}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{
+                marginBottom: 20,
+                padding: 16,
+                background: 'rgba(16, 185, 129, 0.1)',
+                borderRadius: 12,
+                fontSize: 14,
+                color: '#10b981',
+                fontWeight: 600,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 8
+              }}>
+                <span>💰 {filteredMatches.reduce((s, m) => s + m.valueBets.length, 0)} value bets across {filteredMatches.length} matches</span>
+                <span style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}>
+                  Sorted by: {SORT_OPTIONS.find(s => s.id === sortBy)?.label}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gap: 24 }}>
+                {filteredMatches.map((matchData, index) => (
+                  <MatchCard key={`${matchData.match.home}-${matchData.match.away}-${index}`} matchData={matchData} rank={index + 1} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Action Buttons */}
-      <div style={{ textAlign: 'center', marginTop: 32, display: 'flex', gap: 16, justifyContent: 'center' }}>
-        <button
-          onClick={fetchValueBets}
-          style={{
-            padding: '12px 32px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            border: 'none',
-            borderRadius: 12,
-            color: 'white',
-            fontWeight: 600,
-            fontSize: 14,
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
-          }}
-        >
-          🔄 Refresh Data
-        </button>
-        <button
-          onClick={triggerRefresh}
-          disabled={refreshing}
-          style={{
-            padding: '12px 32px',
-            background: refreshing
-              ? 'rgba(100, 116, 139, 0.3)'
-              : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            border: 'none',
-            borderRadius: 12,
-            color: 'white',
-            fontWeight: 600,
-            fontSize: 14,
-            cursor: refreshing ? 'wait' : 'pointer',
-            boxShadow: refreshing ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.3)'
-          }}
-        >
+      <div style={{ textAlign: 'center', marginTop: 32, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <button onClick={fetchValueBets} style={buttonStyle}>🔄 Refresh Data</button>
+        <button onClick={triggerRefresh} disabled={refreshing} style={{...buttonStyle, background: refreshing ? 'rgba(100, 116, 139, 0.3)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)'}}>
           {refreshing ? '🔄 Scanning...' : '⚡ Force New Scan'}
         </button>
       </div>
@@ -434,32 +517,42 @@ export default function EPLValueBets() {
   );
 }
 
+const buttonStyle = {
+  padding: '12px 24px',
+  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  border: 'none',
+  borderRadius: 12,
+  color: 'white',
+  fontWeight: 600,
+  fontSize: 14,
+  cursor: 'pointer',
+  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+};
+
 function StatBox({ label, value, color }) {
   return (
     <div style={{
-      padding: 16,
+      padding: 12,
       background: 'rgba(30, 41, 59, 0.5)',
       borderRadius: 12,
       border: '1px solid rgba(255, 255, 255, 0.1)',
       textAlign: 'center'
     }}>
-      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, fontWeight: 600 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 24, fontWeight: 900, color }}>
-        {value}
-      </div>
+      <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 900, color }}>{value}</div>
     </div>
   );
 }
 
-// Helper functions
 function mapMarketName(statKey) {
   const map = {
     'corners': 'Corners',
     'yellow_cards': 'Yellow Cards',
     'goals': 'Goals',
-    'shots_on_target': 'Shots on Target'
+    'shots_on_target': 'Shots on Target',
+    'tackles': 'Tackles',
+    'offsides': 'Offsides',
+    'assists': 'Assists'
   };
   return map[statKey] || statKey;
 }
@@ -469,39 +562,18 @@ function getMarketEmoji(statKey) {
     'corners': '🚩',
     'yellow_cards': '🟨',
     'goals': '⚽',
-    'shots_on_target': '🎯'
+    'shots_on_target': '🎯',
+    'tackles': '🦶',
+    'offsides': '🚫',
+    'assists': '🤝'
   };
   return map[statKey] || '⚽';
 }
 
 function generateReasoning(bet) {
-  const reasons = [];
-
-  if (bet.probability > 65) {
-    reasons.push(`high confidence (${bet.probability.toFixed(0)}%)`);
-  } else if (bet.probability > 60) {
-    reasons.push(`solid probability (${bet.probability.toFixed(0)}%)`);
-  }
-
-  if (bet.predictedTotal) {
-    const margin = bet.selection === 'under'
-      ? bet.line - bet.predictedTotal
-      : bet.predictedTotal - bet.line;
-
-    if (margin > 0.5) {
-      reasons.push(`${margin.toFixed(1)} margin of safety`);
-    }
-  }
-
-  if (bet.bestEV > 10) {
-    reasons.push(`excellent value (${bet.bestEV.toFixed(1)}% EV)`);
-  } else if (bet.bestEV > 5) {
-    reasons.push(`good edge (${bet.bestEV.toFixed(1)}% EV)`);
-  }
-
-  if (reasons.length === 0) {
-    return `${bet.bestEV.toFixed(1)}% edge at ${bet.bestBookmaker}`;
-  }
-
-  return reasons.join(' • ');
+  const parts = [];
+  if (bet.probability > 60) parts.push(`${bet.probability.toFixed(0)}% probability`);
+  if (bet.bestEV > 5) parts.push(`+${bet.bestEV.toFixed(1)}% EV`);
+  if (bet.bestBookmaker) parts.push(`@ ${bet.bestBookmaker}`);
+  return parts.join(' • ') || 'Value opportunity';
 }

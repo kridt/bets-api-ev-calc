@@ -184,82 +184,117 @@ function ValueBetItem({ bet, matchData, isExpanded, onToggle }) {
           marginBottom: 12
         }}
       >
+        {/* Main bet info row */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 8
+          alignItems: 'flex-start',
+          gap: 16,
+          marginBottom: 12
         }}>
+          {/* Left: Market & Selection */}
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0', marginBottom: 4 }}>
               {bet.prediction.emoji} {bet.prediction.marketName}
             </div>
-            <div style={{ fontSize: 13, color: '#94a3b8' }}>
-              {bet.prediction.selection.toUpperCase()} {formatLine(bet.prediction.line)} • {bet.prediction.probability.toFixed(1)}% ({calculateDecimalOdds(bet.prediction.probability)})
+            <div style={{ fontSize: 14, color: '#10b981', fontWeight: 600, marginBottom: 4 }}>
+              {bet.prediction.selection.toUpperCase()} {formatLine(bet.prediction.line)}
+            </div>
+            <div style={{ fontSize: 12, color: '#94a3b8' }}>
+              Our probability: {bet.prediction.probability.toFixed(1)}% (fair odds: {calculateDecimalOdds(bet.prediction.probability)})
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Best EV</div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: getEVGrade(bet.bestOdds.ev).color }}>
-                +{bet.bestOdds.ev.toFixed(1)}%
-              </div>
-            </div>
-            <div style={{ fontSize: 18, color: '#667eea' }}>
-              {isExpanded ? '▼' : '▶'}
+
+          {/* Right: EV Badge */}
+          <div style={{
+            padding: '12px 16px',
+            background: getEVGrade(bet.bestOdds.ev).gradient,
+            borderRadius: 12,
+            textAlign: 'center',
+            minWidth: 80
+          }}>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', marginBottom: 2, fontWeight: 600 }}>EV</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: 'white' }}>
+              +{bet.bestOdds.ev.toFixed(1)}%
             </div>
           </div>
         </div>
 
-        {/* Top Bookmakers - Always Visible */}
+        {/* Prominent Bookmaker Display */}
         <div style={{
+          padding: 12,
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%)',
+          border: '2px solid rgba(16, 185, 129, 0.4)',
+          borderRadius: 12,
           display: 'flex',
-          gap: 8,
+          justifyContent: 'space-between',
+          alignItems: 'center',
           flexWrap: 'wrap',
-          marginTop: 8
+          gap: 12
         }}>
-          {displayBookmakers.slice(0, 3).map((bookie, i) => (
-            <div
-              key={i}
-              style={{
-                padding: '6px 12px',
-                background: i === 0
-                  ? 'rgba(16, 185, 129, 0.15)'
-                  : 'rgba(100, 116, 139, 0.15)',
-                border: `1px solid ${i === 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(100, 116, 139, 0.2)'}`,
-                borderRadius: 8,
+          <div>
+            <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4, textTransform: 'uppercase', fontWeight: 600 }}>
+              Play at
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>
+              {bet.bestOdds.bookmaker || 'Best Available'}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4, textTransform: 'uppercase', fontWeight: 600 }}>
+              Best Odds
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: '#f59e0b' }}>
+              {bet.bestOdds.odds?.toFixed(2) || 'N/A'}
+            </div>
+          </div>
+          <div style={{ fontSize: 18, color: '#667eea' }}>
+            {isExpanded ? '▼' : '▶'}
+          </div>
+        </div>
+
+        {/* Additional Bookmakers - if any */}
+        {bet.allBookmakers.length > 1 && (
+          <div style={{
+            display: 'flex',
+            gap: 8,
+            flexWrap: 'wrap',
+            marginTop: 10
+          }}>
+            <span style={{ fontSize: 11, color: '#64748b', alignSelf: 'center' }}>Also available:</span>
+            {displayBookmakers.slice(1, 4).map((bookie, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: '4px 10px',
+                  background: 'rgba(100, 116, 139, 0.15)',
+                  border: '1px solid rgba(100, 116, 139, 0.2)',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <span style={{ color: '#94a3b8' }}>{bookie.bookmaker}</span>
+                <span style={{ color: '#10b981', fontWeight: 700 }}>{bookie.odds}</span>
+              </div>
+            ))}
+            {bet.allBookmakers.length > 4 && !isExpanded && (
+              <div style={{
+                padding: '4px 10px',
+                background: 'rgba(139, 92, 246, 0.15)',
+                borderRadius: 6,
                 fontSize: 11,
                 fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8
-              }}
-            >
-              <span style={{ color: '#e2e8f0' }}>{bookie.bookmaker}</span>
-              <span style={{ color: '#10b981' }}>{bookie.odds}</span>
-              <span style={{
-                color: getEVGrade(bookie.ev).color,
-                fontSize: 10,
-                fontWeight: 700
+                color: '#c4b5fd'
               }}>
-                +{bookie.ev.toFixed(1)}%
-              </span>
-            </div>
-          ))}
-          {bet.allBookmakers.length > 3 && !isExpanded && (
-            <div style={{
-              padding: '6px 12px',
-              background: 'rgba(139, 92, 246, 0.15)',
-              border: '1px solid rgba(139, 92, 246, 0.3)',
-              borderRadius: 8,
-              fontSize: 11,
-              fontWeight: 600,
-              color: '#c4b5fd'
-            }}>
-              +{bet.allBookmakers.length - 3} more
-            </div>
-          )}
-        </div>
+                +{bet.allBookmakers.length - 4} more
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Expanded Details */}
