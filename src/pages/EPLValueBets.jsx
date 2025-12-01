@@ -43,15 +43,19 @@ export default function EPLValueBets() {
   function filterMatchesByMaxOdds(matchList, maxOddsThreshold) {
     const filtered = matchList.map(match => {
       // Filter value bets to only include those with odds <= maxOddsThreshold
-      const filteredBets = match.valueBets.filter(bet => bet.bestOdds <= maxOddsThreshold);
+      // Note: bestOdds is an object with { odds, bookmaker, ev, url }
+      const filteredBets = match.valueBets.filter(bet => {
+        const odds = bet.bestOdds?.odds || bet.bestOdds;
+        return odds <= maxOddsThreshold;
+      });
 
       if (filteredBets.length === 0) return null;
 
       return {
         ...match,
         valueBets: filteredBets,
-        totalEV: filteredBets.reduce((sum, bet) => sum + bet.bestEV, 0),
-        bestEV: Math.max(...filteredBets.map(bet => bet.bestEV))
+        totalEV: filteredBets.reduce((sum, bet) => sum + (bet.bestOdds?.ev || 0), 0),
+        bestEV: Math.max(...filteredBets.map(bet => bet.bestOdds?.ev || 0))
       };
     }).filter(match => match !== null);
 
