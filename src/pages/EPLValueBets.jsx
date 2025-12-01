@@ -2,17 +2,9 @@
 import { useState, useEffect } from 'react';
 import MatchCard from '../components/MatchCard.jsx';
 
-// League configurations
+// League configurations - Only EPL is currently supported by the backend API
 const LEAGUES = [
-  { id: 'all', name: 'All Leagues', emoji: '🌍', code: null },
-  { id: 'epl', name: 'Premier League', emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', code: 'PL' },
-  { id: 'laliga', name: 'La Liga', emoji: '🇪🇸', code: 'PD' },
-  { id: 'bundesliga', name: 'Bundesliga', emoji: '🇩🇪', code: 'BL1' },
-  { id: 'seriea', name: 'Serie A', emoji: '🇮🇹', code: 'SA' },
-  { id: 'ligue1', name: 'Ligue 1', emoji: '🇫🇷', code: 'FL1' },
-  { id: 'eredivisie', name: 'Eredivisie', emoji: '🇳🇱', code: 'DED' },
-  { id: 'ligaportugal', name: 'Liga Portugal', emoji: '🇵🇹', code: 'PPL' },
-  { id: 'championship', name: 'Championship', emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', code: 'ELC' }
+  { id: 'epl', name: 'Premier League', emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', code: 'PL' }
 ];
 
 // API base URL - must be set in Vercel env vars for production
@@ -27,7 +19,7 @@ export default function EPLValueBets() {
   const [stats, setStats] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [maxOdds, setMaxOdds] = useState(3.0);
-  const [selectedLeague, setSelectedLeague] = useState('all');
+  const [selectedLeague, setSelectedLeague] = useState('epl');
 
   useEffect(() => {
     fetchValueBets();
@@ -68,7 +60,7 @@ export default function EPLValueBets() {
       setLoading(true);
       setError(null);
 
-      const leagueParam = selectedLeague === 'all' ? '' : `&league=${LEAGUES.find(l => l.id === selectedLeague)?.code}`;
+      const leagueParam = `&league=${LEAGUES.find(l => l.id === selectedLeague)?.code || 'PL'}`;
       const url = `${API_BASE_URL}/api/ev-bets?minEV=0&maxOdds=${maxOdds}&limit=100${leagueParam}`;
 
       console.log(`📊 Fetching value bets from: ${url}`);
@@ -246,48 +238,11 @@ export default function EPLValueBets() {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}>
-              {selectedLeague === 'all' ? 'Football Value Bets' : LEAGUES.find(l => l.id === selectedLeague)?.name + ' Value Bets'}
+              Premier League Value Bets
             </h1>
             <p style={{ fontSize: 14, color: '#94a3b8', margin: '4px 0 0 0' }}>
               Server-calculated EV bets • Updated every 2 minutes
             </p>
-          </div>
-        </div>
-
-        {/* League Selector */}
-        <div style={{ marginTop: 16, marginBottom: 12 }}>
-          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            ⚽ League
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {LEAGUES.map(league => {
-              const isSelected = selectedLeague === league.id;
-              return (
-                <button
-                  key={league.id}
-                  onClick={() => setSelectedLeague(league.id)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 10,
-                    border: 'none',
-                    background: isSelected
-                      ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                      : 'rgba(100, 116, 139, 0.2)',
-                    color: isSelected ? 'white' : '#94a3b8',
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6
-                  }}
-                >
-                  <span>{league.emoji}</span>
-                  <span>{league.name}</span>
-                </button>
-              );
-            })}
           </div>
         </div>
 
