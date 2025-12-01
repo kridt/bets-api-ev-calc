@@ -2,14 +2,16 @@
 import { useState, useEffect } from 'react';
 import MatchCard from '../components/MatchCard.jsx';
 
-// League configurations
+// League configurations - All leagues now available via football-data.org
 const LEAGUES = [
-  { id: 'all', name: 'All Leagues', emoji: '🌍', code: null, available: true },
-  { id: 'epl', name: 'Premier League', emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', code: 'PL', available: true },
-  { id: 'laliga', name: 'La Liga', emoji: '🇪🇸', code: 'PD', available: false },
-  { id: 'bundesliga', name: 'Bundesliga', emoji: '🇩🇪', code: 'BL1', available: false },
-  { id: 'seriea', name: 'Serie A', emoji: '🇮🇹', code: 'SA', available: false },
-  { id: 'ligue1', name: 'Ligue 1', emoji: '🇫🇷', code: 'FL1', available: false },
+  { id: 'all', name: 'All Leagues', emoji: '🌍', code: null, available: true, useMultiLeague: true },
+  { id: 'epl', name: 'Premier League', emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', code: 'PL', available: true, useMultiLeague: false },
+  { id: 'laliga', name: 'La Liga', emoji: '🇪🇸', code: 'PD', available: true, useMultiLeague: true },
+  { id: 'bundesliga', name: 'Bundesliga', emoji: '🇩🇪', code: 'BL1', available: true, useMultiLeague: true },
+  { id: 'seriea', name: 'Serie A', emoji: '🇮🇹', code: 'SA', available: true, useMultiLeague: true },
+  { id: 'ligue1', name: 'Ligue 1', emoji: '🇫🇷', code: 'FL1', available: true, useMultiLeague: true },
+  { id: 'ucl', name: 'Champions League', emoji: '🏆', code: 'CL', available: true, useMultiLeague: true },
+  { id: 'uel', name: 'Europa League', emoji: '🌟', code: 'EL', available: true, useMultiLeague: true },
 ];
 
 // Sort options
@@ -153,8 +155,13 @@ export default function EPLValueBets() {
         return;
       }
 
+      // Determine which endpoint to use based on league
+      // Premier League uses the original /api/ev-bets (balldontlie.io)
+      // Other leagues use /api/football/value-bets (football-data.org)
+      const useMultiLeague = league?.useMultiLeague ?? (selectedLeague !== 'epl');
+      const baseEndpoint = useMultiLeague ? '/api/football/value-bets' : '/api/ev-bets';
       const leagueParam = selectedLeague === 'all' ? '' : `&league=${league?.code || 'PL'}`;
-      const url = `${API_BASE_URL}/api/ev-bets?minEV=0&maxOdds=10&limit=100${leagueParam}`;
+      const url = `${API_BASE_URL}${baseEndpoint}?minEV=0&maxOdds=10&limit=100${leagueParam}`;
 
       console.log(`📊 Fetching value bets from: ${url}`);
       const response = await fetch(url);
@@ -555,22 +562,22 @@ export default function EPLValueBets() {
         )}
       </div>
 
-      {/* Unavailable League Message */}
-      {selectedLeagueData && !selectedLeagueData.available && selectedLeague !== 'all' && (
+      {/* League Info Message - shows when multi-league API needs to be configured */}
+      {selectedLeagueData?.useMultiLeague && selectedLeague !== 'all' && filteredMatches.length === 0 && !loading && (
         <div style={{
           padding: 40,
           textAlign: 'center',
-          background: 'rgba(251, 191, 36, 0.1)',
+          background: 'rgba(59, 130, 246, 0.1)',
           borderRadius: 20,
-          border: '1px solid rgba(251, 191, 36, 0.3)',
+          border: '1px solid rgba(59, 130, 246, 0.3)',
           marginBottom: 24
         }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🚧</div>
-          <div style={{ fontSize: 20, color: '#fbbf24', fontWeight: 700, marginBottom: 8 }}>
-            {selectedLeagueData.name} Coming Soon
+          <div style={{ fontSize: 48, marginBottom: 16 }}>ℹ️</div>
+          <div style={{ fontSize: 20, color: '#3b82f6', fontWeight: 700, marginBottom: 8 }}>
+            {selectedLeagueData.name} Data Loading
           </div>
           <div style={{ fontSize: 14, color: '#94a3b8' }}>
-            We're working on adding {selectedLeagueData.name} data. Currently only Premier League is available.
+            Multi-league data requires a Football-Data.org API key. Check back soon or try Premier League.
           </div>
         </div>
       )}
@@ -675,7 +682,8 @@ function mapMarketName(statKey) {
     'shots_on_target': 'Shots on Target',
     'tackles': 'Tackles',
     'offsides': 'Offsides',
-    'assists': 'Assists'
+    'assists': 'Assists',
+    'btts': 'Both Teams To Score'
   };
   return map[statKey] || statKey;
 }
@@ -688,7 +696,8 @@ function getMarketEmoji(statKey) {
     'shots_on_target': '🎯',
     'tackles': '🦶',
     'offsides': '🚫',
-    'assists': '🤝'
+    'assists': '🤝',
+    'btts': '🥅'
   };
   return map[statKey] || '⚽';
 }
