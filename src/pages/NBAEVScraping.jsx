@@ -1175,7 +1175,7 @@ export default function NBAEVScraping() {
       // Try both "completed" and "finished" statuses for yesterday's games
       const [pendingResponse, liveResponse, yesterdayResponse1, yesterdayResponse2] = await Promise.all([
         fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=pending&to=${toDate}`),
-        fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=inprogress`),
+        fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=live`),
         fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=completed&from=${yesterdayFrom}&to=${yesterdayTo}`),
         fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=finished&from=${yesterdayFrom}&to=${yesterdayTo}`)
       ]);
@@ -1190,12 +1190,12 @@ export default function NBAEVScraping() {
       // Live endpoint might fail if no live matches, that's ok
       if (liveResponse.ok) {
         liveData = await liveResponse.json();
-        // Filter to only matches in first 30 minutes
+        // Filter to only matches in first 20 minutes (player props still valuable early in game)
         liveData = liveData.filter(match => {
           const now = new Date();
           const matchDate = new Date(match.date);
           const diffMinutes = (now - matchDate) / (1000 * 60);
-          return diffMinutes <= 30;
+          return diffMinutes <= 20;
         });
         // Mark as live
         liveData = liveData.map(m => ({ ...m, isLive: true }));
