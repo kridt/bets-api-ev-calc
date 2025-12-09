@@ -7,6 +7,7 @@ import { BetTracker } from '../services/betTracker';
 import { getUsername, setUsername as saveUsername, getDeviceId } from '../lib/supabase';
 import { useSocket } from '../hooks/useSocket';
 import ConnectionStatus from '../components/ConnectionStatus';
+import './Dashboard.css';
 
 const COLORS = {
   won: '#22c55e',
@@ -138,63 +139,26 @@ export default function Dashboard() {
 
   if (loading && !stats) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#fff',
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            border: '3px solid rgba(255,255,255,0.2)',
-            borderTopColor: '#22c55e',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px',
-          }} />
-          <p>Loading dashboard...</p>
+      <div className="dashboard-container loading-container">
+        <div>
+          <div className="loading-spinner" />
+          <p className="loading-text">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-      color: '#fff',
-      padding: '24px',
-    }}>
+    <div className="dashboard-container">
       {/* Header */}
-      <div style={{
-        background: 'rgba(30, 41, 59, 0.8)',
-        borderRadius: 20,
-        padding: '24px 32px',
-        marginBottom: 24,
-        border: '1px solid rgba(34, 197, 94, 0.3)',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h1 style={{
-              fontSize: 28,
-              fontWeight: 800,
-              margin: 0,
-              background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>
-              P&L Dashboard
-            </h1>
-            <p style={{ color: '#94a3b8', margin: '8px 0 0 0', fontSize: 14 }}>
-              Universal bet tracking across all users
-            </p>
+      <div className="header-section">
+        <div className="header-content">
+          <div className="header-text">
+            <h1>P&L Dashboard</h1>
+            <p>Universal bet tracking across all users</p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="header-actions">
             <ConnectionStatus
               connected={connected}
               isRefreshing={loading}
@@ -206,37 +170,18 @@ export default function Dashboard() {
               cacheStatus={socketStatus}
               sport="nba"
             />
-            <button
-              onClick={loadStats}
-              style={{
-                padding: '10px 20px',
-                borderRadius: 12,
-                border: '1px solid rgba(34, 197, 94, 0.5)',
-                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                color: '#fff',
-                fontWeight: 600,
-                fontSize: 14,
-                cursor: 'pointer',
-              }}
-            >
+            <button className="refresh-button" onClick={loadStats}>
               Refresh
             </button>
           </div>
         </div>
 
         {/* Filters */}
-        <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+        <div className="filters-row">
           <select
+            className="filter-select"
             value={filter.sport || ''}
             onChange={(e) => setFilter(f => ({ ...f, sport: e.target.value || null }))}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 8,
-              border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(30, 41, 59, 0.8)',
-              color: '#fff',
-              fontSize: 14,
-            }}
           >
             <option value="">All Sports</option>
             <option value="nba">NBA</option>
@@ -244,16 +189,9 @@ export default function Dashboard() {
           </select>
 
           <select
+            className="filter-select"
             value={filter.days}
             onChange={(e) => setFilter(f => ({ ...f, days: parseInt(e.target.value) }))}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 8,
-              border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(30, 41, 59, 0.8)',
-              color: '#fff',
-              fontSize: 14,
-            }}
           >
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>
@@ -265,100 +203,45 @@ export default function Dashboard() {
 
       {/* Stats Cards */}
       {stats && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 16,
-          marginBottom: 24,
-        }}>
+        <div className="stats-grid">
           {/* Total Profit */}
-          <div style={{
-            background: 'rgba(30, 41, 59, 0.8)',
-            borderRadius: 16,
-            padding: 20,
-            border: `1px solid ${stats.totalProfit >= 0 ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-          }}>
-            <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 8 }}>Total Profit</div>
-            <div style={{
-              fontSize: 32,
-              fontWeight: 800,
-              color: stats.totalProfit >= 0 ? '#22c55e' : '#ef4444',
-            }}>
+          <div className={`stat-card profit ${stats.totalProfit < 0 ? 'negative' : ''}`}>
+            <div className="stat-label">Total Profit</div>
+            <div className={`stat-value ${stats.totalProfit >= 0 ? 'green' : 'red'}`}>
               {formatCurrency(stats.totalProfit)}
             </div>
-            <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-              ROI: {formatPercent(stats.roi)}
-            </div>
+            <div className="stat-subtext">ROI: {formatPercent(stats.roi)}</div>
           </div>
 
           {/* Win Rate */}
-          <div style={{
-            background: 'rgba(30, 41, 59, 0.8)',
-            borderRadius: 16,
-            padding: 20,
-            border: '1px solid rgba(59, 130, 246, 0.3)',
-          }}>
-            <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 8 }}>Win Rate</div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: '#3b82f6' }}>
-              {formatPercent(stats.winRate)}
-            </div>
-            <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-              {stats.won}W - {stats.lost}L ({stats.settled} settled)
-            </div>
+          <div className="stat-card winrate">
+            <div className="stat-label">Win Rate</div>
+            <div className="stat-value blue">{formatPercent(stats.winRate)}</div>
+            <div className="stat-subtext">{stats.won}W - {stats.lost}L ({stats.settled} settled)</div>
           </div>
 
           {/* Total Bets */}
-          <div style={{
-            background: 'rgba(30, 41, 59, 0.8)',
-            borderRadius: 16,
-            padding: 20,
-            border: '1px solid rgba(168, 85, 247, 0.3)',
-          }}>
-            <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 8 }}>Total Bets</div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: '#a855f7' }}>
-              {stats.totalBets}
-            </div>
-            <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-              {stats.pending} pending
-            </div>
+          <div className="stat-card total">
+            <div className="stat-label">Total Bets</div>
+            <div className="stat-value purple">{stats.totalBets}</div>
+            <div className="stat-subtext">{stats.pending} pending</div>
           </div>
 
           {/* Avg EV */}
-          <div style={{
-            background: 'rgba(30, 41, 59, 0.8)',
-            borderRadius: 16,
-            padding: 20,
-            border: '1px solid rgba(249, 115, 22, 0.3)',
-          }}>
-            <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 8 }}>Avg EV</div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: '#f97316' }}>
-              {formatPercent(stats.avgEv)}
-            </div>
-            <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
-              per bet
-            </div>
+          <div className="stat-card ev">
+            <div className="stat-label">Avg EV</div>
+            <div className="stat-value orange">{formatPercent(stats.avgEv)}</div>
+            <div className="stat-subtext">per bet</div>
           </div>
         </div>
       )}
 
       {/* Charts Row */}
       {stats && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-          gap: 24,
-          marginBottom: 24,
-        }}>
+        <div className="charts-grid">
           {/* Cumulative P&L Chart */}
-          <div style={{
-            background: 'rgba(30, 41, 59, 0.8)',
-            borderRadius: 16,
-            padding: 24,
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-          }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 600 }}>
-              Cumulative P&L
-            </h3>
+          <div className="chart-card">
+            <h3>Cumulative P&L</h3>
             {stats.dailyPnL.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={stats.dailyPnL}>
@@ -388,22 +271,13 @@ export default function Dashboard() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ height: 250, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                No settled bets yet
-              </div>
+              <div className="chart-empty">No settled bets yet</div>
             )}
           </div>
 
           {/* Results Distribution */}
-          <div style={{
-            background: 'rgba(30, 41, 59, 0.8)',
-            borderRadius: 16,
-            padding: 24,
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-          }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 600 }}>
-              Results Distribution
-            </h3>
+          <div className="chart-card">
+            <h3>Results Distribution</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
               <ResponsiveContainer width="50%" height={200}>
                 <PieChart>
@@ -423,12 +297,12 @@ export default function Dashboard() {
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
-              <div style={{ flex: 1 }}>
+              <div className="pie-legend">
                 {pieData.map((entry) => (
-                  <div key={entry.name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <div style={{ width: 12, height: 12, borderRadius: 3, background: entry.color }} />
-                    <span style={{ color: '#94a3b8', fontSize: 14 }}>{entry.name}</span>
-                    <span style={{ color: '#fff', fontWeight: 600, marginLeft: 'auto' }}>{entry.value}</span>
+                  <div key={entry.name} className="pie-legend-item">
+                    <div className="pie-legend-color" style={{ background: entry.color }} />
+                    <span className="pie-legend-label">{entry.name}</span>
+                    <span className="pie-legend-value">{entry.value}</span>
                   </div>
                 ))}
               </div>
@@ -439,27 +313,19 @@ export default function Dashboard() {
 
       {/* By Market Performance */}
       {stats && Object.keys(stats.byMarket).length > 0 && (
-        <div style={{
-          background: 'rgba(30, 41, 59, 0.8)',
-          borderRadius: 16,
-          padding: 24,
-          marginBottom: 24,
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-        }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 600 }}>
-            Performance by Market
-          </h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="table-card">
+          <h3>Performance by Market</h3>
+          <div className="table-wrapper">
+            <table className="data-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                  <th style={{ textAlign: 'left', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Market</th>
-                  <th style={{ textAlign: 'center', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Bets</th>
-                  <th style={{ textAlign: 'center', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Won</th>
-                  <th style={{ textAlign: 'center', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Lost</th>
-                  <th style={{ textAlign: 'center', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Win%</th>
-                  <th style={{ textAlign: 'center', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Avg EV</th>
-                  <th style={{ textAlign: 'right', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Profit</th>
+                <tr>
+                  <th>Market</th>
+                  <th className="center">Bets</th>
+                  <th className="center">Won</th>
+                  <th className="center">Lost</th>
+                  <th className="center">Win%</th>
+                  <th className="center">Avg EV</th>
+                  <th className="right">Profit</th>
                 </tr>
               </thead>
               <tbody>
@@ -467,23 +333,16 @@ export default function Dashboard() {
                   .sort((a, b) => b[1].total - a[1].total)
                   .slice(0, 10)
                   .map(([market, data]) => (
-                    <tr key={market} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '12px 16px', fontWeight: 500 }}>{market}</td>
-                      <td style={{ padding: '12px 16px', textAlign: 'center', color: '#94a3b8' }}>{data.total}</td>
-                      <td style={{ padding: '12px 16px', textAlign: 'center', color: '#22c55e' }}>{data.won}</td>
-                      <td style={{ padding: '12px 16px', textAlign: 'center', color: '#ef4444' }}>{data.lost}</td>
-                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <tr key={market}>
+                      <td className="market-name">{market}</td>
+                      <td className="center muted">{data.total}</td>
+                      <td className="center green">{data.won}</td>
+                      <td className="center red">{data.lost}</td>
+                      <td className="center">
                         {data.won + data.lost > 0 ? formatPercent((data.won / (data.won + data.lost)) * 100) : '-'}
                       </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'center', color: '#f97316' }}>
-                        {formatPercent(data.avgEv)}
-                      </td>
-                      <td style={{
-                        padding: '12px 16px',
-                        textAlign: 'right',
-                        fontWeight: 600,
-                        color: data.profit >= 0 ? '#22c55e' : '#ef4444',
-                      }}>
+                      <td className="center orange">{formatPercent(data.avgEv)}</td>
+                      <td className={`right ${data.profit >= 0 ? 'green' : 'red'}`} style={{ fontWeight: 600 }}>
                         {formatCurrency(data.profit)}
                       </td>
                     </tr>
@@ -496,145 +355,79 @@ export default function Dashboard() {
 
       {/* Recent Bets */}
       {stats && stats.recentBets.length > 0 && (
-        <div style={{
-          background: 'rgba(30, 41, 59, 0.8)',
-          borderRadius: 16,
-          padding: 24,
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-        }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 600 }}>
-            Recent Bets
-          </h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="table-card">
+          <h3>Recent Bets</h3>
+          <div className="table-wrapper">
+            <table className="data-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                  <th style={{ textAlign: 'left', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Date</th>
-                  <th style={{ textAlign: 'left', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Sport</th>
-                  <th style={{ textAlign: 'left', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Bet</th>
-                  <th style={{ textAlign: 'center', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Odds</th>
-                  <th style={{ textAlign: 'center', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>EV</th>
-                  <th style={{ textAlign: 'center', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Book</th>
-                  <th style={{ textAlign: 'center', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Result</th>
-                  <th style={{ textAlign: 'center', padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>Actions</th>
+                <tr>
+                  <th>Date</th>
+                  <th>Sport</th>
+                  <th>Bet</th>
+                  <th className="center">Odds</th>
+                  <th className="center">EV</th>
+                  <th className="center">Book</th>
+                  <th className="center">Result</th>
+                  <th className="center">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {stats.recentBets.map((bet) => (
-                  <tr key={bet.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '12px 16px', color: '#94a3b8', fontSize: 13 }}>
+                  <tr key={bet.id}>
+                    <td className="muted" style={{ fontSize: 13 }}>
                       {new Date(bet.created_at).toLocaleDateString()}
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{
-                        padding: '4px 8px',
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        background: bet.sport === 'nba' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-                        color: bet.sport === 'nba' ? '#f97316' : '#22c55e',
-                      }}>
+                    <td>
+                      <span className={`sport-badge ${bet.sport}`}>
                         {bet.sport.toUpperCase()}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
+                    <td>
                       <div style={{ fontWeight: 500 }}>{bet.player}</div>
-                      <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                      <div style={{ fontSize: 12 }} className="muted">
                         {bet.bet_type} {bet.line} ({bet.market})
                       </div>
                     </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600 }}>
+                    <td className="center" style={{ fontWeight: 600 }}>
                       {bet.actual_odds?.toFixed(2)}
                     </td>
-                    <td style={{
-                      padding: '12px 16px',
-                      textAlign: 'center',
-                      fontWeight: 600,
-                      color: '#f97316',
-                    }}>
+                    <td className="center orange" style={{ fontWeight: 600 }}>
                       +{(bet.actual_ev || bet.displayed_ev)?.toFixed(1)}%
                     </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center', fontSize: 13 }}>
+                    <td className="center" style={{ fontSize: 13 }}>
                       {bet.bookmaker}
                     </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      <span style={{
-                        padding: '4px 12px',
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        background:
-                          bet.result === 'won' ? 'rgba(34, 197, 94, 0.2)' :
-                          bet.result === 'lost' ? 'rgba(239, 68, 68, 0.2)' :
-                          bet.result === 'void' ? 'rgba(107, 114, 128, 0.2)' :
-                          'rgba(245, 158, 11, 0.2)',
-                        color:
-                          bet.result === 'won' ? '#22c55e' :
-                          bet.result === 'lost' ? '#ef4444' :
-                          bet.result === 'void' ? '#6b7280' :
-                          '#f59e0b',
-                      }}>
+                    <td className="center">
+                      <span className={`result-badge ${bet.result}`}>
                         {bet.result.toUpperCase()}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <td className="center">
                       {bet.result === 'pending' ? (
-                        <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                        <div className="action-buttons">
                           <button
+                            className="action-btn won"
                             onClick={() => handleResultUpdate(bet.id, 'won')}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: 4,
-                              border: 'none',
-                              background: 'rgba(34, 197, 94, 0.2)',
-                              color: '#22c55e',
-                              fontSize: 11,
-                              cursor: 'pointer',
-                            }}
                           >
                             Won
                           </button>
                           <button
+                            className="action-btn lost"
                             onClick={() => handleResultUpdate(bet.id, 'lost')}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: 4,
-                              border: 'none',
-                              background: 'rgba(239, 68, 68, 0.2)',
-                              color: '#ef4444',
-                              fontSize: 11,
-                              cursor: 'pointer',
-                            }}
                           >
                             Lost
                           </button>
                           <button
+                            className="action-btn void"
                             onClick={() => handleResultUpdate(bet.id, 'void')}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: 4,
-                              border: 'none',
-                              background: 'rgba(107, 114, 128, 0.2)',
-                              color: '#6b7280',
-                              fontSize: 11,
-                              cursor: 'pointer',
-                            }}
                           >
                             Void
                           </button>
                         </div>
                       ) : (
                         <button
+                          className="action-btn delete"
                           onClick={() => handleDelete(bet.id)}
-                          style={{
-                            padding: '4px 8px',
-                            borderRadius: 4,
-                            border: 'none',
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            color: '#ef4444',
-                            fontSize: 11,
-                            cursor: 'pointer',
-                          }}
                         >
                           Delete
                         </button>
@@ -650,27 +443,12 @@ export default function Dashboard() {
 
       {/* Empty State */}
       {stats && stats.totalBets === 0 && (
-        <div style={{
-          background: 'rgba(30, 41, 59, 0.8)',
-          borderRadius: 16,
-          padding: 48,
-          textAlign: 'center',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-        }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
-          <h3 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>No bets tracked yet</h3>
-          <p style={{ color: '#94a3b8', margin: 0 }}>
-            Start tracking bets from the NBA or Football EV pages to see your performance here.
-          </p>
+        <div className="empty-state">
+          <div className="empty-state-icon">📊</div>
+          <h3>No bets tracked yet</h3>
+          <p>Start tracking bets from the NBA or Football EV pages to see your performance here.</p>
         </div>
       )}
-
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }

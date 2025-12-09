@@ -9,6 +9,7 @@ import { useSocket } from '../hooks/useSocket';
 import ConnectionStatus from '../components/ConnectionStatus';
 import { BetTracker } from '../services/betTracker';
 import { HelpTooltip } from '../components/Tooltip';
+import './FootballEV.css';
 
 const ODDS_API_KEY =
   "811e5fb0efa75d2b92e800cb55b60b30f62af8c21da06c4b2952eb516bee0a2e";
@@ -122,6 +123,14 @@ const AVAILABLE_MARKETS = [
     enabled: false,
     category: "match",
   },
+  {
+    key: "shots_on_target_totals",
+    label: "Shots on Target Totals",
+    apiNames: ["Shots On Target Totals", "Shots on Target Totals", "Total Shots On Target", "Total Shots on Target"],
+    marketType: "totals",
+    enabled: true,
+    category: "match",
+  },
   // ===== PLAYER PROP MARKETS =====
   {
     key: "goalscorer",
@@ -233,8 +242,12 @@ const getMatchMarkets = () =>
 
 // Line tolerance for matching (tighter now since we normalize)
 const LINE_TOLERANCE = 0.25;
+// Stricter tolerance for spread markets (must be nearly exact to avoid 1st half/full match mixing)
+const SPREAD_LINE_TOLERANCE = 0.1;
 // Minimum EV percentage to show (3%+ for higher confidence)
 const MIN_EV_PERCENT = 3;
+// Maximum EV percentage before flagging as suspicious (likely data error)
+const MAX_REASONABLE_EV = 35;
 
 // Normalize lines to .5 increments for consistent matching
 // Over 10 and Over 10.5 are nearly equivalent (10 pushes vs loses)
@@ -569,15 +582,34 @@ export default function FootballEVScraping() {
     const betId = generateBetId(bet);
     const removed = removedBets[betId];
     if (!removed) return false;
-    if (bet.odds !== removed.removedOdds) {
-      const newRemovedBets = { ...removedBets };
-      delete newRemovedBets[betId];
-      setRemovedBets(newRemovedBets);
-      saveToStorage(REMOVED_BETS_KEY, newRemovedBets);
-      return false;
-    }
+    // Simply check if bet was removed - don't modify state during render
+    // The bet stays removed until user manually un-removes it or clears storage
     return true;
   };
+
+  // Optional: Clear old removed bets periodically (e.g., older than 24 hours)
+  useEffect(() => {
+    const now = new Date();
+    const cleanedBets = {};
+    let changed = false;
+
+    for (const [betId, data] of Object.entries(removedBets)) {
+      const removedAt = new Date(data.removedAt);
+      const hoursSinceRemoved = (now - removedAt) / (1000 * 60 * 60);
+
+      // Keep bets removed within the last 24 hours
+      if (hoursSinceRemoved < 24) {
+        cleanedBets[betId] = data;
+      } else {
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      setRemovedBets(cleanedBets);
+      saveToStorage(REMOVED_BETS_KEY, cleanedBets);
+    }
+  }, []); // Run once on mount
 
   const getNext48HoursDate = () => {
     const date = new Date();
@@ -836,8 +868,28 @@ export default function FootballEVScraping() {
     return normalized;
   };
 
-  const linesMatch = (line1, line2) =>
-    Math.abs(line1 - line2) <= LINE_TOLERANCE;
+  const linesMatch = (line1, line2, marketType = 'totals') => {
+    // Use stricter tolerance for spread markets to avoid mixing 1st half with full match
+    const tolerance = marketType === 'spread' ? SPREAD_LINE_TOLERANCE : LINE_TOLERANCE;
+    return Math.abs(line1 - line2) <= tolerance;
+  };
+
+  // Check if odds are an outlier (likely wrong market like 1st half vs full match)
+  // Returns true if odds should be excluded
+  const isOddsOutlier = (odds, allOdds) => {
+    if (allOdds.length < 2) return false;
+
+    // Calculate median odds
+    const sortedOdds = [...allOdds].sort((a, b) => a - b);
+    const midIdx = Math.floor(sortedOdds.length / 2);
+    const median = sortedOdds.length % 2 === 0
+      ? (sortedOdds[midIdx - 1] + sortedOdds[midIdx]) / 2
+      : sortedOdds[midIdx];
+
+    // If odds differ from median by more than 80%, it's likely a different market
+    const ratio = odds / median;
+    return ratio > 1.8 || ratio < 0.55;
+  };
 
   const groupAndMatchProps = (allProps) => {
     console.log(`[Grouping] Starting with ${allProps.length} total props`);
@@ -896,7 +948,8 @@ export default function FootballEVScraping() {
         for (const cluster of clusters) {
           const avgLine =
             cluster.reduce((sum, p) => sum + p.line, 0) / cluster.length;
-          if (linesMatch(prop.line, avgLine)) {
+          // Pass marketType to use stricter tolerance for spread markets
+          if (linesMatch(prop.line, avgLine, group.marketType)) {
             cluster.push(prop);
             added = true;
             break;
@@ -905,10 +958,21 @@ export default function FootballEVScraping() {
         if (!added) clusters.push([prop]);
       }
       for (const cluster of clusters) {
-        const uniqueBookmakers = new Set(cluster.map((p) => p.bookmaker));
+        // Filter out odds outliers (likely 1st half vs full match mix-up)
+        const allOdds = cluster.map(p => p.overOdds).filter(o => o && !isNaN(o));
+        const filteredCluster = cluster.filter(p => {
+          if (!p.overOdds || isNaN(p.overOdds)) return true;
+          const outlier = isOddsOutlier(p.overOdds, allOdds);
+          if (outlier) {
+            console.log(`[Grouping] Excluding outlier: ${p.bookmaker} ${p.marketName} line ${p.line} @ ${p.overOdds} (median odds: ${allOdds.sort((a,b)=>a-b)[Math.floor(allOdds.length/2)]})`);
+          }
+          return !outlier;
+        });
+
+        const uniqueBookmakers = new Set(filteredCluster.map((p) => p.bookmaker));
         if (uniqueBookmakers.size >= MIN_BOOKMAKERS) {
           const avgLine =
-            cluster.reduce((sum, p) => sum + p.line, 0) / cluster.length;
+            filteredCluster.reduce((sum, p) => sum + p.line, 0) / filteredCluster.length;
           matched.push({
             player: group.player,
             market: group.market,
@@ -916,7 +980,7 @@ export default function FootballEVScraping() {
             marketType: group.marketType,
             category: group.category,
             avgLine: Math.round(avgLine * 2) / 2,
-            props: cluster,
+            props: filteredCluster,
             bookmakerCount: uniqueBookmakers.size,
           });
         }
@@ -1072,7 +1136,12 @@ export default function FootballEVScraping() {
           };
 
           allLines.push(lineObj);
-          if (evPercent >= MIN_EV_PERCENT) opportunities.push(lineObj);
+          // Filter: must meet min EV and not exceed max reasonable EV (likely data error)
+          if (evPercent >= MIN_EV_PERCENT && evPercent <= MAX_REASONABLE_EV) {
+            opportunities.push(lineObj);
+          } else if (evPercent > MAX_REASONABLE_EV) {
+            console.log(`[EV] Skipping suspicious EV: ${group.player} ${group.marketName} @ ${prop.bookmaker} - ${evPercent.toFixed(1)}% EV (>35% is likely data error)`);
+          }
         }
       } else {
         // TWO-WAY MARKET (Over/Under) - Traditional de-vigging
@@ -1153,7 +1222,12 @@ export default function FootballEVScraping() {
           };
 
           allLines.push(lineObj);
-          if (evPercent >= MIN_EV_PERCENT) opportunities.push(lineObj);
+          // Filter: must meet min EV and not exceed max reasonable EV (likely data error)
+          if (evPercent >= MIN_EV_PERCENT && evPercent <= MAX_REASONABLE_EV) {
+            opportunities.push(lineObj);
+          } else if (evPercent > MAX_REASONABLE_EV) {
+            console.log(`[EV] Skipping suspicious EV: ${group.player} ${group.marketName} OVER @ ${prop.bookmaker} - ${evPercent.toFixed(1)}% EV (>35% is likely data error)`);
+          }
         }
 
         // Check UNDER bets
@@ -1196,7 +1270,12 @@ export default function FootballEVScraping() {
           };
 
           allLines.push(lineObj);
-          if (evPercent >= MIN_EV_PERCENT) opportunities.push(lineObj);
+          // Filter: must meet min EV and not exceed max reasonable EV (likely data error)
+          if (evPercent >= MIN_EV_PERCENT && evPercent <= MAX_REASONABLE_EV) {
+            opportunities.push(lineObj);
+          } else if (evPercent > MAX_REASONABLE_EV) {
+            console.log(`[EV] Skipping suspicious EV: ${group.player} ${group.marketName} UNDER @ ${prop.bookmaker} - ${evPercent.toFixed(1)}% EV (>35% is likely data error)`);
+          }
         }
       }
     }
@@ -1246,6 +1325,30 @@ export default function FootballEVScraping() {
     }
     return computed;
   }, [matchData, devigMethod]);
+
+  // Count bets per market (for display in filter)
+  const betCountsByMarket = useMemo(() => {
+    const counts = {};
+    AVAILABLE_MARKETS.forEach(m => { counts[m.key] = 0; });
+
+    Object.values(computedMatchData).forEach(data => {
+      if (data.allLines) {
+        data.allLines.forEach(opp => {
+          if (
+            opp.evPercent >= minEVFilter &&
+            opp.odds <= maxOddsFilter &&
+            !isBetRemoved(opp) &&
+            selectedBookmakers[opp.bookmaker]
+          ) {
+            if (counts[opp.marketKey] !== undefined) {
+              counts[opp.marketKey]++;
+            }
+          }
+        });
+      }
+    });
+    return counts;
+  }, [computedMatchData, minEVFilter, maxOddsFilter, selectedBookmakers]);
 
   const analyzeMatchInternal = async (match, onProgress) => {
     console.log(
@@ -1698,24 +1801,30 @@ export default function FootballEVScraping() {
               <HelpTooltip text="Types of bets to analyze. Player props (shots, goals) and match markets (corners, cards)." />
             </span>
             <div className="filter-options">
-              {AVAILABLE_MARKETS.map((market) => (
-                <label
-                  key={market.key}
-                  className={`filter-checkbox-label ${selectedMarkets.includes(market.key) ? 'selected-blue' : ''}`}
-                  title={market.oneWay ? "One-way bet (no under)" : "Over/Under market"}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedMarkets.includes(market.key)}
-                    onChange={() => toggleMarketFilter(market.key)}
-                    className="filter-checkbox"
-                    style={{ accentColor: "#3b82f6" }}
-                  />
-                  <span className={`filter-checkbox-text ${selectedMarkets.includes(market.key) ? 'blue' : ''}`}>
-                    {market.label}
-                  </span>
-                </label>
-              ))}
+              {AVAILABLE_MARKETS.map((market) => {
+                const count = betCountsByMarket[market.key] || 0;
+                return (
+                  <label
+                    key={market.key}
+                    className={`filter-checkbox-label ${selectedMarkets.includes(market.key) ? 'selected-blue' : ''}`}
+                    title={market.oneWay ? "One-way bet (no under)" : "Over/Under market"}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedMarkets.includes(market.key)}
+                      onChange={() => toggleMarketFilter(market.key)}
+                      className="filter-checkbox"
+                      style={{ accentColor: "#3b82f6" }}
+                    />
+                    <span className={`filter-checkbox-text ${selectedMarkets.includes(market.key) ? 'blue' : ''}`}>
+                      {market.label}
+                      {count > 0 && (
+                        <span className="market-bet-count">{count}</span>
+                      )}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 

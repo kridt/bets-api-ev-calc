@@ -1,0 +1,947 @@
+/* ========================================
+   NBA EV CALCULATOR - MODERN REDESIGN
+   Dark theme with orange accent for NBA
+   ======================================== */
+
+/* NBA-specific accent overrides */
+.nba-ev-container {
+  --accent-primary: #f97316;
+  --accent-bright: #fb923c;
+  --accent-dim: #7c2d12;
+  --accent-glow: rgba(249, 115, 22, 0.4);
+}
+
+/* ========================================
+   BASE & CONTAINER
+   ======================================== */
+.nba-ev-container {
+  min-height: 100vh;
+  padding: var(--spacing-lg);
+  position: relative;
+  z-index: 1;
+}
+
+/* ========================================
+   HEADER SECTION
+   ======================================== */
+.nba-ev-container .header-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.nba-ev-container .header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-lg);
+  flex-wrap: wrap;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.nba-ev-container .header-text h1 {
+  font-size: clamp(24px, 5vw, 32px);
+  font-weight: 800;
+  margin: 0 0 var(--spacing-sm) 0;
+  background: linear-gradient(135deg, var(--color-orange) 0%, var(--color-orange-bright) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+}
+
+.nba-ev-container .header-text p {
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  margin: 0;
+  font-weight: 500;
+}
+
+.nba-ev-container .header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.nba-ev-container .refresh-button {
+  padding: 14px 28px;
+  border-radius: var(--radius-lg);
+  border: none;
+  background: linear-gradient(135deg, var(--color-orange) 0%, var(--color-orange-bright) 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3);
+}
+
+.nba-ev-container .refresh-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(249, 115, 22, 0.5);
+}
+
+.nba-ev-container .refresh-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Bookmakers Info */
+.nba-ev-container .bookmakers-info {
+  margin-top: var(--spacing-md);
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: var(--radius-md);
+}
+
+.nba-ev-container .bookmakers-label {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: var(--spacing-xs);
+}
+
+.nba-ev-container .bookmaker-tag {
+  background: rgba(100, 116, 139, 0.2);
+  color: var(--color-text-tertiary);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.nba-ev-container .bookmaker-tag.playable {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--color-success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.nba-ev-container .bookmaker-tag:hover {
+  transform: translateY(-1px);
+}
+
+/* ========================================
+   STATS CARDS
+   ======================================== */
+.nba-ev-container .stats-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+}
+
+.nba-ev-container .stat-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--glass-border);
+  text-align: center;
+  transition: all var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.nba-ev-container .stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--stat-accent, var(--color-success)), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.nba-ev-container .stat-card:hover {
+  border-color: var(--color-border-emphasis);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.nba-ev-container .stat-card:hover::before {
+  opacity: 1;
+}
+
+.nba-ev-container .stat-value {
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: var(--spacing-xs);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.nba-ev-container .stat-value.green {
+  color: var(--color-success-bright);
+  text-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+}
+
+.nba-ev-container .stat-value.orange {
+  color: var(--color-orange-bright);
+  text-shadow: 0 0 20px rgba(249, 115, 22, 0.4);
+}
+
+.nba-ev-container .stat-value.gray {
+  color: var(--color-text-tertiary);
+}
+
+.nba-ev-container .stat-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+/* ========================================
+   FILTER SECTIONS
+   ======================================== */
+.nba-ev-container .filter-section {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
+}
+
+.nba-ev-container .filter-label {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.nba-ev-container .filter-options {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.nba-ev-container .filter-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  min-height: 44px;
+}
+
+.nba-ev-container .filter-checkbox-label:hover {
+  border-color: var(--color-border-emphasis);
+  transform: translateY(-1px);
+}
+
+.nba-ev-container .filter-checkbox-label.selected-green {
+  border-color: var(--color-success);
+  background: rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3);
+}
+
+.nba-ev-container .filter-checkbox-label.selected-orange {
+  border-color: var(--color-orange);
+  background: rgba(249, 115, 22, 0.1);
+  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.3);
+}
+
+.nba-ev-container .filter-checkbox-label.selected-purple {
+  border-color: var(--color-purple);
+  background: rgba(168, 85, 247, 0.1);
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.3);
+}
+
+.nba-ev-container .filter-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.nba-ev-container .filter-checkbox-text {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+  transition: color var(--transition-fast);
+}
+
+.nba-ev-container .filter-checkbox-label.selected-green .filter-checkbox-text {
+  color: var(--color-success-bright);
+}
+
+.nba-ev-container .filter-checkbox-label.selected-orange .filter-checkbox-text {
+  color: var(--color-orange-bright);
+}
+
+.nba-ev-container .filter-checkbox-label.selected-purple .filter-checkbox-text {
+  color: var(--color-purple-bright);
+}
+
+/* ========================================
+   SLIDER CONTROLS
+   ======================================== */
+.nba-ev-container .slider-container {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.nba-ev-container .slider-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.nba-ev-container .slider-label {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.nba-ev-container .slider-value {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.nba-ev-container .slider-value.green {
+  color: var(--color-success-bright);
+}
+
+.nba-ev-container .slider-value.orange {
+  color: var(--color-orange);
+}
+
+/* ========================================
+   MATCH CARDS
+   ======================================== */
+.nba-ev-container .match-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--glass-border);
+  transition: all var(--transition-base);
+  margin-bottom: var(--spacing-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.nba-ev-container .match-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--color-success), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.nba-ev-container .match-card.has-ev {
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+}
+
+.nba-ev-container .match-card.has-ev::before {
+  opacity: 1;
+}
+
+.nba-ev-container .match-card:hover {
+  border-color: var(--color-border-emphasis);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.nba-ev-container .match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-md);
+  gap: var(--spacing-md);
+}
+
+.nba-ev-container .match-meta {
+  flex: 1;
+}
+
+.nba-ev-container .match-badges {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.nba-ev-container .badge {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+}
+
+.nba-ev-container .badge.league {
+  background: rgba(249, 115, 22, 0.15);
+  color: var(--color-orange-bright);
+  border-color: rgba(249, 115, 22, 0.3);
+}
+
+.nba-ev-container .badge.time {
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--color-text-tertiary);
+  border-color: var(--color-border);
+}
+
+.nba-ev-container .match-teams {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.nba-ev-container .match-vs {
+  color: var(--color-text-muted);
+  font-weight: 400;
+  margin: 0 6px;
+}
+
+.nba-ev-container .match-status {
+  flex-shrink: 0;
+}
+
+.nba-ev-container .status-badge {
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 2px solid;
+}
+
+.nba-ev-container .status-badge.ev {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1));
+  color: var(--color-success-bright);
+  border-color: var(--color-success);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+.nba-ev-container .status-badge.no-ev {
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
+
+/* ========================================
+   EV OPPORTUNITIES
+   ======================================== */
+.nba-ev-container .ev-opportunities {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.nba-ev-container .ev-opportunities-title {
+  color: var(--color-success-bright);
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.nba-ev-container .ev-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-base);
+  margin-bottom: var(--spacing-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.nba-ev-container .ev-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(to bottom, var(--color-success), var(--color-success-bright));
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.nba-ev-container .ev-card:hover {
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+  transform: translateX(4px);
+}
+
+.nba-ev-container .ev-card:hover::before {
+  opacity: 1;
+}
+
+.nba-ev-container .ev-card.high-ev {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, var(--color-surface) 100%);
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.15);
+}
+
+.nba-ev-container .ev-card.high-ev::before {
+  opacity: 1;
+}
+
+.nba-ev-container .ev-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-md);
+  gap: var(--spacing-md);
+}
+
+.nba-ev-container .ev-player-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+}
+
+.nba-ev-container .ev-player-name {
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.nba-ev-container .ev-market-badge {
+  background: rgba(249, 115, 22, 0.15);
+  color: var(--color-orange-bright);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.nba-ev-container .ev-bet-type {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+}
+
+.nba-ev-container .ev-bet-type.over {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-success-bright);
+  border-color: var(--color-success);
+}
+
+.nba-ev-container .ev-bet-type.under {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.nba-ev-container .ev-percentage {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--color-success-bright);
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+}
+
+/* ========================================
+   EV ODDS INFO
+   ======================================== */
+.nba-ev-container .ev-odds-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.nba-ev-container .ev-odds-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.nba-ev-container .odds-label {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.nba-ev-container .odds-value {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.nba-ev-container .odds-value.bet {
+  color: var(--color-info-bright);
+}
+
+.nba-ev-container .odds-value.fair {
+  color: var(--color-success-bright);
+}
+
+.nba-ev-container .odds-bookmaker {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: var(--spacing-xs);
+}
+
+/* ========================================
+   SHARP ODDS CHIPS
+   ======================================== */
+.nba-ev-container .sharp-odds-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-md);
+}
+
+.nba-ev-container .sharp-label {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.nba-ev-container .sharp-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 6px 12px;
+  background: rgba(100, 116, 139, 0.15);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.nba-ev-container .sharp-chip:hover {
+  background: rgba(100, 116, 139, 0.25);
+  border-color: var(--color-border-emphasis);
+}
+
+.nba-ev-container .sharp-chip-bookmaker {
+  color: var(--color-text-tertiary);
+  font-weight: 700;
+}
+
+.nba-ev-container .sharp-chip-odds {
+  color: var(--color-text-primary);
+  font-weight: 800;
+}
+
+.nba-ev-container .sharp-chip-line {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+/* ========================================
+   TRACKING FORM & ACTIONS
+   ======================================== */
+.nba-ev-container .tracking-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.nba-ev-container .tracking-input {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-orange);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  min-height: 48px;
+  width: 100%;
+  transition: all var(--transition-base);
+}
+
+.nba-ev-container .tracking-input:focus {
+  outline: none;
+  border-color: var(--color-orange-bright);
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.2);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.nba-ev-container .tracking-buttons {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.nba-ev-container .ev-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.nba-ev-container .action-button {
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  min-height: 48px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nba-ev-container .action-button.track {
+  background: linear-gradient(135deg, var(--color-orange) 0%, var(--color-orange-bright) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
+.nba-ev-container .action-button.track:hover {
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.5);
+  transform: translateY(-2px);
+}
+
+.nba-ev-container .action-button.tracked {
+  background: linear-gradient(135deg, var(--color-success) 0%, var(--color-success-bright) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.nba-ev-container .action-button.tracked:hover {
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+  transform: translateY(-2px);
+}
+
+.nba-ev-container .action-button.remove {
+  background: rgba(239, 68, 68, 0.15);
+  border: 2px solid var(--color-danger);
+  color: var(--color-danger);
+}
+
+.nba-ev-container .action-button.remove:hover {
+  background: rgba(239, 68, 68, 0.25);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  transform: translateY(-2px);
+}
+
+/* ========================================
+   RESPONSIVE - MOBILE
+   ======================================== */
+@media (max-width: 768px) {
+  .nba-ev-container {
+    padding: var(--spacing-md);
+  }
+
+  .nba-ev-container .header-content {
+    flex-direction: column;
+    align-items: stretch;
+    padding: var(--spacing-md);
+  }
+
+  .nba-ev-container .header-text {
+    text-align: center;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .nba-ev-container .header-text h1 {
+    font-size: 24px;
+  }
+
+  .nba-ev-container .header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .nba-ev-container .refresh-button {
+    width: 100%;
+  }
+
+  .nba-ev-container .stats-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .nba-ev-container .filter-section {
+    flex-direction: column;
+    align-items: stretch;
+    padding: var(--spacing-md);
+  }
+
+  .nba-ev-container .filter-label {
+    min-width: unset;
+    width: 100%;
+  }
+
+  .nba-ev-container .filter-checkbox-label {
+    flex: 1;
+    min-width: calc(50% - 4px);
+    justify-content: center;
+  }
+
+  .nba-ev-container .match-card {
+    padding: var(--spacing-md);
+  }
+
+  .nba-ev-container .match-header {
+    flex-direction: column;
+  }
+
+  .nba-ev-container .match-teams {
+    font-size: 18px;
+  }
+
+  .nba-ev-container .match-status {
+    width: 100%;
+  }
+
+  .nba-ev-container .status-badge {
+    display: block;
+    text-align: center;
+    width: 100%;
+  }
+
+  .nba-ev-container .ev-card {
+    padding: var(--spacing-md);
+  }
+
+  .nba-ev-container .ev-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nba-ev-container .ev-percentage {
+    font-size: 24px;
+  }
+
+  .nba-ev-container .ev-odds-info {
+    grid-template-columns: 1fr;
+  }
+
+  .nba-ev-container .tracking-buttons {
+    flex-direction: column;
+  }
+
+  .nba-ev-container .ev-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .nba-ev-container {
+    padding: var(--spacing-sm);
+  }
+
+  .nba-ev-container .header-text h1 {
+    font-size: 22px;
+  }
+
+  .nba-ev-container .stats-container {
+    grid-template-columns: 1fr;
+  }
+
+  .nba-ev-container .filter-checkbox-label {
+    min-width: 100%;
+  }
+
+  .nba-ev-container .match-teams {
+    font-size: 16px;
+  }
+
+  .nba-ev-container .ev-player-name {
+    font-size: 14px;
+  }
+}
+
+/* ========================================
+   TOUCH DEVICE OPTIMIZATIONS
+   ======================================== */
+@media (hover: none) and (pointer: coarse) {
+  .nba-ev-container .filter-checkbox-label,
+  .nba-ev-container .action-button,
+  .nba-ev-container .refresh-button,
+  .nba-ev-container .tracking-input {
+    min-height: 48px;
+  }
+}

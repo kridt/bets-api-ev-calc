@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import ConnectionStatus from '../components/ConnectionStatus';
 import { BetTracker } from '../services/betTracker';
+import './NBAEV.css';
 
 const ODDS_API_KEY = '811e5fb0efa75d2b92e800cb55b60b30f62af8c21da06c4b2952eb516bee0a2e';
 const ODDS_API_BASE = 'https://api2.odds-api.io/v3';
@@ -1404,13 +1405,9 @@ export default function NBAEVScraping() {
   };
 
   return (
-    <div>
+    <div className="nba-ev-container">
       {/* CSS Animation for LIVE pulse + Confidence Tooltip */}
       <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.6; }
-        }
         .confidence-badge:hover .confidence-tooltip {
           opacity: 1 !important;
           visibility: visible !important;
@@ -1418,31 +1415,14 @@ export default function NBAEVScraping() {
       `}</style>
 
       {/* Header Section */}
-      <div style={{
-        background: "linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(234, 88, 12, 0.1) 100%)",
-        borderRadius: 20,
-        padding: "24px 32px",
-        marginBottom: 24,
-        border: "1px solid rgba(249, 115, 22, 0.3)",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
-          <div>
-            <h1 style={{
-              fontSize: 28,
-              fontWeight: 800,
-              margin: 0,
-              background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}>
-              NBA EV Scraping
-            </h1>
-            <p style={{ color: "#94a3b8", margin: "8px 0 0 0", fontSize: 14 }}>
-              De-vigged EV calculation across {ALL_BOOKMAKERS.length} bookmakers - Find {MIN_EV_PERCENT}%+ EV on {PLAYABLE_BOOKMAKERS.join(', ')}
-            </p>
+      <div className="header-section">
+        <div className="header-content">
+          <div className="header-text">
+            <h1>NBA EV Scraping</h1>
+            <p>De-vigged EV calculation across {ALL_BOOKMAKERS.length} bookmakers - Find {MIN_EV_PERCENT}%+ EV on {PLAYABLE_BOOKMAKERS.join(', ')}</p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div className="header-actions">
             <ConnectionStatus
               connected={connected}
               isRefreshing={socketRefreshing || analyzing}
@@ -1458,19 +1438,9 @@ export default function NBAEVScraping() {
               sport="nba"
             />
             <button
+              className="refresh-button"
               onClick={refreshAll}
               disabled={loading || analyzing}
-              style={{
-                padding: "10px 20px",
-                borderRadius: 12,
-                border: "1px solid rgba(249, 115, 22, 0.5)",
-                background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
-                color: "#fff",
-                fontWeight: 600,
-                fontSize: 14,
-                cursor: (loading || analyzing) ? "not-allowed" : "pointer",
-                opacity: (loading || analyzing) ? 0.7 : 1,
-              }}
             >
               {loading ? "Loading..." : analyzing ? "Analyzing..." : "Refresh All"}
             </button>
@@ -1478,32 +1448,14 @@ export default function NBAEVScraping() {
         </div>
 
         {/* Bookmakers info */}
-        <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ color: "#64748b", fontSize: 12 }}>Playable:</span>
+        <div className="bookmakers-info">
+          <span className="bookmakers-label">Playable:</span>
           {PLAYABLE_BOOKMAKERS.map(b => (
-            <span key={b} style={{
-              background: "rgba(34, 197, 94, 0.2)",
-              color: "#22c55e",
-              padding: "4px 10px",
-              borderRadius: 6,
-              fontSize: 12,
-              fontWeight: 500,
-            }}>
-              {b}
-            </span>
+            <span key={b} className="bookmaker-tag playable">{b}</span>
           ))}
-          <span style={{ color: "#64748b", fontSize: 12, marginLeft: 8 }}>For avg:</span>
+          <span className="bookmakers-label">For avg:</span>
           {ALL_BOOKMAKERS.filter(b => !PLAYABLE_BOOKMAKERS.includes(b)).map(b => (
-            <span key={b} style={{
-              background: "rgba(100, 116, 139, 0.2)",
-              color: "#94a3b8",
-              padding: "4px 10px",
-              borderRadius: 6,
-              fontSize: 12,
-              fontWeight: 500,
-            }}>
-              {b}
-            </span>
+            <span key={b} className="bookmaker-tag">{b}</span>
           ))}
         </div>
       </div>
