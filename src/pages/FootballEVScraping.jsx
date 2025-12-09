@@ -2063,6 +2063,9 @@ export default function FootballEVScraping() {
                         <span style={{ color: "#64748b" }}>vs</span>{" "}
                         {match.away}
                       </div>
+                      <div style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>
+                        Event ID: <span style={{ color: "#94a3b8", fontFamily: "monospace" }}>{match.id}</span>
+                      </div>
                     </div>
                     <div>
                       {isAnalyzed ? (
