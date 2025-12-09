@@ -16,13 +16,30 @@ const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-
 
 // ALL bookmakers for fetching and average calculation (includes sharp books)
 const ALL_BOOKMAKERS = [
-  'Kambi', 'Bet365', 'DraftKings', 'Pinnacle', 'BetMGM', 'Caesars', 'PrizePicks', 'FanDuel',
-  'BetOnline.ag', 'BetPARX', 'BetRivers', 'Bovada', 'Fanatics', 'Fliff',
-  'Superbet', 'Underdog', 'Bally Bet'
+  'Pinnacle',      // Sharp line (10 markets)
+  'Bet365',        // Full coverage (26 markets)
+  'Kambi',         // Full coverage (3 markets)
+  'Unibet DK',     // Danish Unibet (8 markets)
+  'BetMGM',        // Full coverage (7 markets)
+  'ESPN BET',      // US book (6 markets)
+  'BetRivers',     // Full coverage (6 markets)
+  'Bally Bet',     // US book (6 markets)
+  'Fliff',         // Props book (6 markets)
+  'Caesars',       // US book (5 markets)
+  'FanDuel',       // Full coverage (4 markets)
+  'Superbet',      // Full coverage (4 markets)
+  'DanskeSpil',    // Danish book (4 markets)
+  'Bovada',        // Full coverage (4 markets)
+  'DraftKings',    // Full coverage (3 markets)
+  'BetOnline.ag',  // Full coverage (3 markets)
+  'Fanatics',      // Limited (3 markets)
+  'PrizePicks',    // Props book (1 market)
+  'Underdog',      // Props book (1 market)
+  'BetPARX',       // US book
 ];
 
-// Bookmakers we can actually bet on (not DraftKings/Pinnacle/US books)
-const PLAYABLE_BOOKMAKERS = ['Kambi', 'Bet365'];
+// Bookmakers we can bet on (for display in "Show EV from" list)
+const PLAYABLE_BOOKMAKERS = ['Bet365', 'Kambi', 'Unibet DK', 'DanskeSpil'];
 
 // Stat types we want to compare (from label like "Player Name (StatType)")
 // Based on actual API responses from Pinnacle, DraftKings, FanDuel, Kambi

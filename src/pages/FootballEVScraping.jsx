@@ -22,22 +22,29 @@ const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-
 // Pinnacle is used as the sharp line for de-vigging
 const ALL_BOOKMAKERS = [
   "Pinnacle",      // Sharp line (used for fair odds calculation)
-  "Bet365",        // Full coverage
-  "Kambi",         // Full coverage
-  "DraftKings",    // Full coverage
-  "FanDuel",       // ML & Totals
-  "BetMGM",        // Full coverage
-  "Caesars",       // Full coverage
-  "BetOnline.ag",  // Full coverage
-  "BetRivers",     // Full coverage
-  "Bovada",        // Full coverage
-  "Fanatics",      // Full coverage
-  "Superbet",      // Full coverage
-  "Bally Bet",     // Full coverage + player props
+  "Bet365",        // Full coverage (48 markets)
+  "Kambi",         // Full coverage (30 markets)
+  "Unibet DK",     // Danish Unibet (13 markets)
+  "BetMGM",        // Full coverage (11 markets)
+  "Bovada",        // Full coverage (11 markets)
+  "BetRivers",     // Full coverage (10 markets)
+  "DraftKings",    // Full coverage (8 markets)
+  "BetOnline.ag",  // Full coverage (7 markets)
+  "Superbet",      // Full coverage (7 markets)
+  "FanDuel",       // ML & Totals (2 markets)
+  "Fanatics",      // Limited (1 market)
+  "ESPN BET",      // US book
+  "Caesars",       // US book
+  "DanskeSpil",    // Danish book
+  "PrizePicks",    // Props book
+  "Underdog",      // Props book
+  "Fliff",         // Props book
+  "BetPARX",       // US book
+  "Bally Bet",     // US book
 ];
 
-// Bookmakers we can bet on in Denmark (for display in "Show EV from" list)
-const PLAYABLE_BOOKMAKERS = ["Bet365", "Kambi"];
+// Bookmakers we can bet on (for display in "Show EV from" list)
+const PLAYABLE_BOOKMAKERS = ["Bet365", "Kambi", "Unibet DK", "DanskeSpil"];
 
 // All available markets - both player props and match markets
 // marketType: 'player' (has label), 'totals' (over/under), 'spread' (home/away handicap)
