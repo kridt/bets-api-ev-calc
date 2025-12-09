@@ -1438,47 +1438,21 @@ export default function FootballEVScraping() {
   };
 
   return (
-    <div>
+    <div className="football-ev-container">
       {/* Header Section */}
-      <div
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.1) 100%)",
-          borderRadius: 20,
-          padding: "24px 32px",
-          marginBottom: 24,
-          border: "1px solid rgba(34, 197, 94, 0.3)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 16,
-          }}
-        >
-          <div>
-            <h1
-              style={{
-                fontSize: 28,
-                fontWeight: 800,
-                margin: 0,
-                background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
+      <div className="header-section">
+        <div className="header-content">
+          <div className="header-text">
+            <h1>
               Football EV Scraping
             </h1>
-            <p style={{ color: "#94a3b8", margin: "8px 0 0 0", fontSize: 14 }}>
+            <p>
               De-vigged EV calculation across {ALL_BOOKMAKERS.length} bookmakers
               - {selectedLeagues.length} leagues selected
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div className="header-actions">
             <ConnectionStatus
               connected={connected}
               isRefreshing={socketRefreshing || analyzing}
@@ -1496,14 +1470,8 @@ export default function FootballEVScraping() {
             <button
               onClick={refreshAll}
               disabled={loading || analyzing}
+              className="refresh-button"
               style={{
-                padding: "10px 20px",
-                borderRadius: 12,
-                border: "1px solid rgba(34, 197, 94, 0.5)",
-                background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
-                color: "#fff",
-                fontWeight: 600,
-                fontSize: 14,
                 cursor: loading || analyzing ? "not-allowed" : "pointer",
                 opacity: loading || analyzing ? 0.7 : 1,
               }}
@@ -1662,71 +1630,25 @@ export default function FootballEVScraping() {
               );
 
               return (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 16,
-                    marginBottom: 24,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div
-                    style={{
-                      background: "rgba(34, 197, 94, 0.15)",
-                      border: "1px solid rgba(34, 197, 94, 0.3)",
-                      borderRadius: 12,
-                      padding: "12px 20px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: "#22c55e",
-                        fontSize: 24,
-                        fontWeight: 800,
-                      }}
-                    >
+                <div className="stats-container">
+                  <div className="stat-card">
+                    <div className="stat-value">
                       {visibleOpps}
                     </div>
-                    <div style={{ color: "#94a3b8", fontSize: 12 }}>
+                    <div className="stat-label">
                       +EV Bets ({minEVFilter}%+)
                     </div>
                   </div>
-                  <div
-                    style={{
-                      background: "rgba(59, 130, 246, 0.15)",
-                      border: "1px solid rgba(59, 130, 246, 0.3)",
-                      borderRadius: 12,
-                      padding: "12px 20px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: "#60a5fa",
-                        fontSize: 24,
-                        fontWeight: 800,
-                      }}
-                    >
+                  <div className="stat-card blue">
+                    <div className="stat-value blue">
                       {trackedBets.length}
                     </div>
-                    <div style={{ color: "#94a3b8", fontSize: 12 }}>
+                    <div className="stat-label">
                       Tracked Bets
                     </div>
                   </div>
-                  <div
-                    style={{
-                      background: "rgba(100, 116, 139, 0.15)",
-                      border: "1px solid rgba(100, 116, 139, 0.3)",
-                      borderRadius: 12,
-                      padding: "12px 20px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: "#e2e8f0",
-                        fontSize: 24,
-                        fontWeight: 800,
-                      }}
-                    >
+                  <div className="stat-card gray">
+                    <div className="stat-value gray">
                       {
                         Object.keys(computedMatchData).filter(
                           (id) => computedMatchData[id].analyzed
@@ -1734,7 +1656,7 @@ export default function FootballEVScraping() {
                       }{" "}
                       / {matches.length}
                     </div>
-                    <div style={{ color: "#94a3b8", fontSize: 12 }}>
+                    <div className="stat-label">
                       Matches
                     </div>
                   </div>
@@ -1743,226 +1665,100 @@ export default function FootballEVScraping() {
             })()}
 
           {/* Bookmaker Filter */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              marginBottom: 20,
-              padding: "12px 16px",
-              background: "rgba(30, 41, 59, 0.6)",
-              borderRadius: 12,
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-            }}
-          >
-            <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center" }}>
+          <div className="filter-section">
+            <span className="filter-label">
               Show EV from:
               <HelpTooltip text="Bookmakers you can actually bet on. We compare their odds to calculate your edge." />
             </span>
-            {PLAYABLE_BOOKMAKERS.map((bookmaker) => (
-              <label
-                key={bookmaker}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  cursor: "pointer",
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                  background: selectedBookmakers[bookmaker]
-                    ? "rgba(34, 197, 94, 0.2)"
-                    : "rgba(100, 116, 139, 0.2)",
-                  border: `1px solid ${
-                    selectedBookmakers[bookmaker]
-                      ? "rgba(34, 197, 94, 0.4)"
-                      : "rgba(100, 116, 139, 0.3)"
-                  }`,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedBookmakers[bookmaker]}
-                  onChange={() => toggleBookmakerFilter(bookmaker)}
-                  style={{
-                    width: 16,
-                    height: 16,
-                    accentColor: "#22c55e",
-                    cursor: "pointer",
-                  }}
-                />
-                <span
-                  style={{
-                    color: selectedBookmakers[bookmaker]
-                      ? "#22c55e"
-                      : "#94a3b8",
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
+            <div className="filter-options">
+              {PLAYABLE_BOOKMAKERS.map((bookmaker) => (
+                <label
+                  key={bookmaker}
+                  className={`filter-checkbox-label ${selectedBookmakers[bookmaker] ? 'selected-green' : ''}`}
                 >
-                  {bookmaker}
-                </span>
-              </label>
-            ))}
+                  <input
+                    type="checkbox"
+                    checked={selectedBookmakers[bookmaker]}
+                    onChange={() => toggleBookmakerFilter(bookmaker)}
+                    className="filter-checkbox"
+                    style={{ accentColor: "#22c55e" }}
+                  />
+                  <span className={`filter-checkbox-text ${selectedBookmakers[bookmaker] ? 'green' : ''}`}>
+                    {bookmaker}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* Market Filter */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 20,
-              padding: "12px 16px",
-              background: "rgba(30, 41, 59, 0.6)",
-              borderRadius: 12,
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              flexWrap: "wrap",
-            }}
-          >
-            <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center" }}>
+          <div className="filter-section">
+            <span className="filter-label">
               Markets:
               <HelpTooltip text="Types of bets to analyze. Player props (shots, goals) and match markets (corners, cards)." />
             </span>
-            {AVAILABLE_MARKETS.map((market) => (
-              <label
-                key={market.key}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  cursor: "pointer",
-                  padding: "5px 10px",
-                  borderRadius: 8,
-                  background: selectedMarkets.includes(market.key)
-                    ? "rgba(59, 130, 246, 0.2)"
-                    : "rgba(100, 116, 139, 0.2)",
-                  border: `1px solid ${
-                    selectedMarkets.includes(market.key)
-                      ? "rgba(59, 130, 246, 0.4)"
-                      : "rgba(100, 116, 139, 0.3)"
-                  }`,
-                }}
-                title={
-                  market.oneWay ? "One-way bet (no under)" : "Over/Under market"
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedMarkets.includes(market.key)}
-                  onChange={() => toggleMarketFilter(market.key)}
-                  style={{
-                    width: 14,
-                    height: 14,
-                    accentColor: "#3b82f6",
-                    cursor: "pointer",
-                  }}
-                />
-                <span
-                  style={{
-                    color: selectedMarkets.includes(market.key)
-                      ? "#60a5fa"
-                      : "#94a3b8",
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
+            <div className="filter-options">
+              {AVAILABLE_MARKETS.map((market) => (
+                <label
+                  key={market.key}
+                  className={`filter-checkbox-label ${selectedMarkets.includes(market.key) ? 'selected-blue' : ''}`}
+                  title={market.oneWay ? "One-way bet (no under)" : "Over/Under market"}
                 >
-                  {market.label}
-                </span>
-              </label>
-            ))}
+                  <input
+                    type="checkbox"
+                    checked={selectedMarkets.includes(market.key)}
+                    onChange={() => toggleMarketFilter(market.key)}
+                    className="filter-checkbox"
+                    style={{ accentColor: "#3b82f6" }}
+                  />
+                  <span className={`filter-checkbox-text ${selectedMarkets.includes(market.key) ? 'blue' : ''}`}>
+                    {market.label}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* De-vig Method Selector */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              marginBottom: 20,
-              padding: "12px 16px",
-              background: "rgba(30, 41, 59, 0.6)",
-              borderRadius: 12,
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              flexWrap: "wrap",
-            }}
-          >
-            <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center" }}>
+          <div className="filter-section">
+            <span className="filter-label">
               De-vig Method:
               <HelpTooltip text="How we remove the bookmaker's profit margin to find the 'true' fair odds. Multiplicative is most common. Hover each method for details." />
             </span>
-            {Object.values(DEVIG_METHODS).map((method) => (
-              <label
-                key={method.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  cursor: "pointer",
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                  background:
-                    devigMethod === method.id
-                      ? "rgba(168, 85, 247, 0.2)"
-                      : "rgba(100, 116, 139, 0.2)",
-                  border: `1px solid ${
-                    devigMethod === method.id
-                      ? "rgba(168, 85, 247, 0.4)"
-                      : "rgba(100, 116, 139, 0.3)"
-                  }`,
-                }}
-                title={method.description}
-              >
-                <input
-                  type="radio"
-                  name="devigMethod"
-                  checked={devigMethod === method.id}
-                  onChange={() => setDevigMethod(method.id)}
-                  style={{
-                    width: 14,
-                    height: 14,
-                    accentColor: "#a855f7",
-                    cursor: "pointer",
-                  }}
-                />
-                <span
-                  style={{
-                    color: devigMethod === method.id ? "#a855f7" : "#94a3b8",
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
+            <div className="filter-options">
+              {Object.values(DEVIG_METHODS).map((method) => (
+                <label
+                  key={method.id}
+                  className={`filter-checkbox-label ${devigMethod === method.id ? 'selected-purple' : ''}`}
+                  title={method.description}
                 >
-                  {method.name}
-                </span>
-              </label>
-            ))}
+                  <input
+                    type="radio"
+                    name="devigMethod"
+                    checked={devigMethod === method.id}
+                    onChange={() => setDevigMethod(method.id)}
+                    className="filter-checkbox"
+                    style={{ accentColor: "#a855f7" }}
+                  />
+                  <span className={`filter-checkbox-text ${devigMethod === method.id ? 'purple' : ''}`}>
+                    {method.name}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* Min EV Slider */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              marginBottom: 20,
-              padding: "12px 16px",
-              background: "rgba(30, 41, 59, 0.6)",
-              borderRadius: 12,
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-            }}
-          >
-            <span
-              style={{
-                color: "#94a3b8",
-                fontSize: 13,
-                fontWeight: 600,
-                minWidth: 100,
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              Min EV%:
-              <HelpTooltip text="Expected Value - your long-term profit edge. 5% EV means you profit $5 per $100 bet on average. Higher = safer but fewer bets." />
-            </span>
+          <div className="slider-container">
+            <div className="slider-label-row">
+              <span className="slider-label">
+                Min EV%:
+                <HelpTooltip text="Expected Value - your long-term profit edge. 5% EV means you profit $5 per $100 bet on average. Higher = safer but fewer bets." />
+              </span>
+              <span className="slider-value green">
+                {minEVFilter}%
+              </span>
+            </div>
             <input
               type="range"
               min="1"
@@ -1971,57 +1767,26 @@ export default function FootballEVScraping() {
               value={minEVFilter}
               onChange={(e) => setMinEVFilter(parseFloat(e.target.value))}
               style={{
-                flex: 1,
-                height: 6,
-                borderRadius: 3,
-                appearance: "none",
                 background: `linear-gradient(to right, #22c55e 0%, #22c55e ${
                   ((minEVFilter - 1) / 49) * 100
                 }%, rgba(100, 116, 139, 0.3) ${
                   ((minEVFilter - 1) / 49) * 100
                 }%, rgba(100, 116, 139, 0.3) 100%)`,
-                cursor: "pointer",
               }}
             />
-            <span
-              style={{
-                color: "#22c55e",
-                fontSize: 16,
-                fontWeight: 700,
-                minWidth: 50,
-                textAlign: "right",
-              }}
-            >
-              {minEVFilter}%
-            </span>
           </div>
 
           {/* Max Odds Slider */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              marginBottom: 20,
-              padding: "12px 16px",
-              background: "rgba(30, 41, 59, 0.6)",
-              borderRadius: 12,
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-            }}
-          >
-            <span
-              style={{
-                color: "#94a3b8",
-                fontSize: 13,
-                fontWeight: 600,
-                minWidth: 100,
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              Max Odds:
-              <HelpTooltip text="Filter out longshots. Odds of 3.0 = 33% win chance. Lower odds = more likely to win but smaller payouts." />
-            </span>
+          <div className="slider-container">
+            <div className="slider-label-row">
+              <span className="slider-label">
+                Max Odds:
+                <HelpTooltip text="Filter out longshots. Odds of 3.0 = 33% win chance. Lower odds = more likely to win but smaller payouts." />
+              </span>
+              <span className="slider-value orange">
+                {maxOddsFilter}
+              </span>
+            </div>
             <input
               type="range"
               min="1.5"
@@ -2030,29 +1795,13 @@ export default function FootballEVScraping() {
               value={maxOddsFilter}
               onChange={(e) => setMaxOddsFilter(parseFloat(e.target.value))}
               style={{
-                flex: 1,
-                height: 6,
-                borderRadius: 3,
-                appearance: "none",
                 background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${
                   ((maxOddsFilter - 1.5) / 8.5) * 100
                 }%, rgba(100, 116, 139, 0.3) ${
                   ((maxOddsFilter - 1.5) / 8.5) * 100
                 }%, rgba(100, 116, 139, 0.3) 100%)`,
-                cursor: "pointer",
               }}
             />
-            <span
-              style={{
-                color: "#f59e0b",
-                fontSize: 16,
-                fontWeight: 700,
-                minWidth: 50,
-                textAlign: "right",
-              }}
-            >
-              {maxOddsFilter}
-            </span>
           </div>
 
           <h2 style={{ margin: "0 0 16px 0", fontSize: 18, fontWeight: 700 }}>
@@ -2095,109 +1844,46 @@ export default function FootballEVScraping() {
               return (
                 <div
                   key={match.id}
-                  style={{
-                    background: hasEV
-                      ? "rgba(34, 197, 94, 0.08)"
-                      : "rgba(30, 41, 59, 0.6)",
-                    borderRadius: 16,
-                    padding: 20,
-                    border: hasEV
-                      ? "1px solid rgba(34, 197, 94, 0.3)"
-                      : "1px solid rgba(255, 255, 255, 0.08)",
-                  }}
+                  className={`match-card ${hasEV ? 'has-ev' : ''}`}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      marginBottom: 16,
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 12,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <span
-                          style={{
-                            background: "rgba(34, 197, 94, 0.2)",
-                            color: "#22c55e",
-                            padding: "4px 10px",
-                            borderRadius: 8,
-                            fontSize: 12,
-                            fontWeight: 600,
-                          }}
-                        >
+                  <div className="match-header">
+                    <div className="match-meta">
+                      <div className="match-badges">
+                        <span className="badge league">
                           {match.league?.name || "Football"}
                         </span>
-                        <span style={{ color: "#64748b", fontSize: 12 }}>
+                        <span className="badge time">
                           {formatDate(match.date)}
                         </span>
-                        <span style={{ color: "#64748b", fontSize: 12 }}>
+                        <span className="badge time">
                           Starts in{" "}
                           <span style={{ color: "#22c55e", fontWeight: 600 }}>
                             {getTimeUntil(match.date)}
                           </span>
                         </span>
                       </div>
-                      <div
-                        style={{
-                          fontSize: 18,
-                          fontWeight: 700,
-                          color: "#e2e8f0",
-                        }}
-                      >
+                      <div className="match-teams">
                         {match.home}{" "}
-                        <span style={{ color: "#64748b" }}>vs</span>{" "}
+                        <span className="match-vs">vs</span>{" "}
                         {match.away}
                       </div>
                       <div style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>
                         Event ID: <span style={{ color: "#94a3b8", fontFamily: "monospace" }}>{match.id}</span>
                       </div>
                     </div>
-                    <div>
+                    <div className="match-status">
                       {isAnalyzed ? (
                         hasEV ? (
-                          <span
-                            style={{
-                              background: "rgba(34, 197, 94, 0.2)",
-                              color: "#22c55e",
-                              padding: "6px 12px",
-                              borderRadius: 8,
-                              fontSize: 13,
-                              fontWeight: 700,
-                            }}
-                          >
+                          <span className="status-badge ev">
                             {opportunities.length} +EV
                           </span>
                         ) : (
-                          <span
-                            style={{
-                              background: "rgba(100, 116, 139, 0.2)",
-                              color: "#94a3b8",
-                              padding: "6px 12px",
-                              borderRadius: 8,
-                              fontSize: 13,
-                            }}
-                          >
+                          <span className="status-badge no-ev">
                             No +EV
                           </span>
                         )
                       ) : (
-                        <span
-                          style={{
-                            background: "rgba(34, 197, 94, 0.2)",
-                            color: "#22c55e",
-                            padding: "6px 12px",
-                            borderRadius: 8,
-                            fontSize: 13,
-                          }}
-                        >
+                        <span className="status-badge ev">
                           Pending...
                         </span>
                       )}
@@ -2206,23 +1892,8 @@ export default function FootballEVScraping() {
 
                   {/* EV Opportunities */}
                   {isAnalyzed && opportunities.length > 0 && (
-                    <div
-                      style={{
-                        marginTop: 16,
-                        paddingTop: 16,
-                        borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 700,
-                          color: "#22c55e",
-                          marginBottom: 12,
-                          display: "flex",
-                          alignItems: "center",
-                        }}
-                      >
+                    <div className="ev-opportunities">
+                      <div className="ev-opportunities-title">
                         +EV Opportunities ({minEVFilter}%+ edge)
                         <HelpTooltip text="Bets where the offered odds are higher than the fair odds. These have positive Expected Value - profitable in the long run!" position="right" />
                       </div>
@@ -2236,147 +1907,57 @@ export default function FootballEVScraping() {
                         {opportunities.map((ev, idx) => (
                           <div
                             key={idx}
-                            style={{
-                              padding: "16px 20px",
-                              background:
-                                ev.evPercent >= 10
-                                  ? "rgba(34, 197, 94, 0.15)"
-                                  : "rgba(34, 197, 94, 0.08)",
-                              borderRadius: 12,
-                              border: `1px solid ${
-                                ev.evPercent >= 10
-                                  ? "rgba(34, 197, 94, 0.3)"
-                                  : "rgba(34, 197, 94, 0.15)"
-                              }`,
-                            }}
+                            className={`ev-card ${ev.evPercent >= 10 ? 'high-ev' : ''}`}
                           >
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                                gap: 8,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 8,
-                                  flexWrap: "wrap",
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    fontWeight: 700,
-                                    color: "#e2e8f0",
-                                    fontSize: 15,
-                                  }}
-                                >
+                            <div className="ev-header">
+                              <div className="ev-player-info">
+                                <span className="ev-player-name">
                                   {ev.player}
                                 </span>
-                                <span
-                                  style={{
-                                    background: "rgba(100, 116, 139, 0.3)",
-                                    color: "#e2e8f0",
-                                    padding: "3px 8px",
-                                    borderRadius: 6,
-                                    fontSize: 12,
-                                    fontWeight: 600,
-                                  }}
-                                >
+                                <span className="ev-market-badge">
                                   {ev.market}
                                 </span>
-                                <span
-                                  style={{
-                                    background:
-                                      ev.betType === "OVER"
-                                        ? "rgba(34, 197, 94, 0.2)"
-                                        : "rgba(239, 68, 68, 0.2)",
-                                    color:
-                                      ev.betType === "OVER"
-                                        ? "#22c55e"
-                                        : "#ef4444",
-                                    padding: "3px 8px",
-                                    borderRadius: 6,
-                                    fontSize: 12,
-                                    fontWeight: 600,
-                                  }}
-                                >
+                                <span className={`ev-bet-type ${ev.betType === "OVER" ? 'over' : 'under'}`}>
                                   {ev.betType} {ev.line}
                                 </span>
                               </div>
                               <div
+                                className="ev-percentage"
                                 style={{
-                                  fontSize: 18,
-                                  fontWeight: 900,
-                                  color:
-                                    ev.evPercent >= 10 ? "#22c55e" : "#4ade80",
+                                  color: ev.evPercent >= 10 ? "#22c55e" : "#4ade80",
                                 }}
                               >
                                 +{ev.evPercent.toFixed(1)}%
                               </div>
                             </div>
 
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginTop: 8,
-                                flexWrap: "wrap",
-                                gap: 8,
-                              }}
-                            >
-                              <div style={{ fontSize: 13, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
-                                <span style={{ color: "#64748b", display: "flex", alignItems: "center" }}>
+                            <div className="ev-odds-info">
+                              <div className="ev-odds-row">
+                                <span className="odds-label">
                                   Bet:
                                   <HelpTooltip text="The odds you can get at this bookmaker. Higher odds = bigger potential payout." position="bottom" />
                                 </span>
-                                <span
-                                  style={{ color: "#22c55e", fontWeight: 700 }}
-                                >
+                                <span className="odds-value bet">
                                   {ev.odds.toFixed(2)}
                                 </span>
-                                <span style={{ color: "#94a3b8" }}>
-                                  {" "}
+                                <span className="odds-bookmaker">
                                   @ {ev.bookmaker}
                                 </span>
-                                <span
-                                  style={{ color: "#64748b", marginLeft: 12, display: "flex", alignItems: "center" }}
-                                >
+                              </div>
+                              <div className="ev-odds-row">
+                                <span className="odds-label">
                                   Fair:
                                   <HelpTooltip text="The 'true' odds after removing bookmaker profit. If Bet odds > Fair odds, you have an edge!" position="bottom" />
                                 </span>
-                                <span
-                                  style={{ color: "#a5b4fc", fontWeight: 600 }}
-                                >
+                                <span className="odds-value fair">
                                   {ev.fairOdds?.toFixed(2)}
                                 </span>
                               </div>
                             </div>
 
                             {/* Sharp book odds - deduplicated by bookmaker */}
-                            <div
-                              style={{
-                                marginTop: 8,
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 6,
-                                alignItems: "center",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  color: "#64748b",
-                                  marginRight: 6,
-                                  fontWeight: 500,
-                                  display: "flex",
-                                  alignItems: "center",
-                                }}
-                              >
+                            <div className="sharp-odds-container">
+                              <span className="sharp-label">
                                 Sharp:
                                 <HelpTooltip text="Odds from professional bookmakers (Pinnacle, Kambi). These are used to calculate fair value." position="bottom" />
                               </span>
@@ -2393,161 +1974,95 @@ export default function FootballEVScraping() {
                                   }
                                 }
                                 return Object.values(seen).map((o, i) => (
-                                  <span
-                                    key={i}
-                                    style={{
-                                      padding: "4px 8px",
-                                      borderRadius: 6,
-                                      fontSize: 12,
-                                      background: "rgba(100, 116, 139, 0.2)",
-                                      color: "#94a3b8",
-                                    }}
-                                  >
-                                    {o.bookmaker}: {o.odds?.toFixed(2)}
+                                  <span key={i} className="sharp-chip">
+                                    <span className="sharp-chip-bookmaker">
+                                      {o.bookmaker}
+                                    </span>
+                                    <span className="sharp-chip-odds">
+                                      {o.odds?.toFixed(2)}
+                                    </span>
+                                    <span className="sharp-chip-line">
+                                      Line {o.line}
+                                    </span>
                                   </span>
                                 ));
                               })()}
                             </div>
 
                             {/* Track/Remove buttons */}
-                            <div
-                              style={{
-                                marginTop: 10,
-                                borderTop: "1px solid rgba(255,255,255,0.1)",
-                                paddingTop: 10,
-                              }}
-                            >
-                              {trackingBetId === generateBetId(ev) ? (
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8,
-                                    flexWrap: "wrap",
+                            {trackingBetId === generateBetId(ev) ? (
+                              <div className="tracking-form">
+                                <span style={{ color: "#94a3b8", fontSize: 12 }}>
+                                  Actual odds:
+                                </span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={customOdds}
+                                  onChange={(e) =>
+                                    setCustomOdds(e.target.value)
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter")
+                                      confirmTrackBet(ev, match);
+                                    if (e.key === "Escape") cancelTracking();
                                   }}
-                                >
-                                  <span
-                                    style={{ color: "#94a3b8", fontSize: 12 }}
-                                  >
-                                    Actual odds:
-                                  </span>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    value={customOdds}
-                                    onChange={(e) =>
-                                      setCustomOdds(e.target.value)
-                                    }
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter")
-                                        confirmTrackBet(ev, match);
-                                      if (e.key === "Escape") cancelTracking();
-                                    }}
-                                    autoFocus
-                                    style={{
-                                      width: 70,
-                                      padding: "6px 10px",
-                                      borderRadius: 6,
-                                      border:
-                                        "1px solid rgba(59, 130, 246, 0.5)",
-                                      background: "rgba(30, 41, 59, 0.8)",
-                                      color: "#e2e8f0",
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      textAlign: "center",
-                                    }}
-                                  />
+                                  autoFocus
+                                  className="tracking-input"
+                                />
+                                <div className="tracking-buttons">
                                   <button
                                     onClick={() => confirmTrackBet(ev, match)}
-                                    style={{
-                                      padding: "6px 12px",
-                                      borderRadius: 6,
-                                      border:
-                                        "1px solid rgba(34, 197, 94, 0.5)",
-                                      background: "rgba(34, 197, 94, 0.2)",
-                                      color: "#22c55e",
-                                      fontSize: 12,
-                                      fontWeight: 600,
-                                      cursor: "pointer",
-                                    }}
+                                    className="action-button tracked"
                                   >
                                     Confirm
                                   </button>
                                   <button
                                     onClick={cancelTracking}
                                     style={{
-                                      padding: "6px 12px",
+                                      padding: "10px 14px",
                                       borderRadius: 6,
-                                      border:
-                                        "1px solid rgba(100, 116, 139, 0.5)",
+                                      border: "1px solid rgba(100, 116, 139, 0.5)",
                                       background: "rgba(100, 116, 139, 0.15)",
                                       color: "#94a3b8",
                                       fontSize: 12,
                                       fontWeight: 600,
                                       cursor: "pointer",
+                                      minHeight: "44px",
+                                      flex: 1,
                                     }}
                                   >
                                     Cancel
                                   </button>
                                 </div>
-                              ) : (
-                                <div style={{ display: "flex", gap: 8 }}>
-                                  {isBetTracked(ev) ? (
-                                    <button
-                                      onClick={() =>
-                                        untrackBet(generateBetId(ev))
-                                      }
-                                      style={{
-                                        padding: "6px 14px",
-                                        borderRadius: 6,
-                                        border:
-                                          "1px solid rgba(34, 197, 94, 0.5)",
-                                        background: "rgba(34, 197, 94, 0.2)",
-                                        color: "#22c55e",
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        cursor: "pointer",
-                                      }}
-                                    >
-                                      Tracked
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => startTracking(ev)}
-                                      style={{
-                                        padding: "6px 14px",
-                                        borderRadius: 6,
-                                        border:
-                                          "1px solid rgba(59, 130, 246, 0.5)",
-                                        background: "rgba(59, 130, 246, 0.15)",
-                                        color: "#60a5fa",
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        cursor: "pointer",
-                                      }}
-                                    >
-                                      Track
-                                    </button>
-                                  )}
+                              </div>
+                            ) : (
+                              <div className="ev-actions">
+                                {isBetTracked(ev) ? (
                                   <button
-                                    onClick={() => removeBet(ev)}
-                                    style={{
-                                      padding: "6px 14px",
-                                      borderRadius: 6,
-                                      border:
-                                        "1px solid rgba(239, 68, 68, 0.5)",
-                                      background: "rgba(239, 68, 68, 0.15)",
-                                      color: "#f87171",
-                                      fontSize: 12,
-                                      fontWeight: 600,
-                                      cursor: "pointer",
-                                    }}
+                                    onClick={() =>
+                                      untrackBet(generateBetId(ev))
+                                    }
+                                    className="action-button tracked"
                                   >
-                                    Remove
+                                    Tracked
                                   </button>
-                                </div>
-                              )}
-                            </div>
+                                ) : (
+                                  <button
+                                    onClick={() => startTracking(ev)}
+                                    className="action-button track"
+                                  >
+                                    Track
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => removeBet(ev)}
+                                  className="action-button remove"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            )}
 
                             {/* Inline Player Stats */}
                             {ev.category === "player" && (
@@ -2608,6 +2123,786 @@ export default function FootballEVScraping() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+
+        /* MOBILE-RESPONSIVE STYLES */
+        * {
+          box-sizing: border-box;
+        }
+
+        .football-ev-container {
+          padding: 12px;
+          max-width: 100%;
+          box-sizing: border-box;
+          overflow-x: hidden;
+        }
+
+        /* Header Section - Mobile First */
+        .header-section {
+          background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.1) 100%);
+          border-radius: 12px;
+          padding: 16px;
+          margin-bottom: 16px;
+          border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .header-content {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .header-text h1 {
+          font-size: 20px;
+          font-weight: 800;
+          margin: 0;
+          background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .header-text p {
+          color: #94a3b8;
+          margin: 6px 0 0 0;
+          font-size: 12px;
+          line-height: 1.4;
+        }
+
+        .header-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          width: 100%;
+        }
+
+        .refresh-button {
+          width: 100%;
+          padding: 12px 20px;
+          border-radius: 12px;
+          border: 1px solid rgba(34, 197, 94, 0.5);
+          background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+          color: #fff;
+          font-weight: 600;
+          font-size: 14px;
+          min-height: 44px;
+          touch-action: manipulation;
+        }
+
+        /* Stats Cards - Mobile Stack */
+        .stats-container {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .stat-card {
+          background: rgba(34, 197, 94, 0.15);
+          border: 1px solid rgba(34, 197, 94, 0.3);
+          border-radius: 12px;
+          padding: 12px 16px;
+        }
+
+        .stat-card.blue {
+          background: rgba(59, 130, 246, 0.15);
+          border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .stat-card.gray {
+          background: rgba(100, 116, 139, 0.15);
+          border-color: rgba(100, 116, 139, 0.3);
+        }
+
+        .stat-value {
+          color: #22c55e;
+          font-size: 24px;
+          font-weight: 800;
+        }
+
+        .stat-value.blue {
+          color: #60a5fa;
+        }
+
+        .stat-value.gray {
+          color: #e2e8f0;
+        }
+
+        .stat-label {
+          color: #94a3b8;
+          font-size: 12px;
+        }
+
+        /* Filter Controls - Mobile Optimized */
+        .filter-section {
+          padding: 12px;
+          background: rgba(30, 41, 59, 0.6);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          margin-bottom: 16px;
+        }
+
+        .filter-label {
+          color: #94a3b8;
+          font-size: 13px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          margin-bottom: 10px;
+        }
+
+        .filter-options {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .filter-checkbox-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          padding: 10px 12px;
+          border-radius: 8px;
+          background: rgba(100, 116, 139, 0.2);
+          border: 1px solid rgba(100, 116, 139, 0.3);
+          min-height: 44px;
+          touch-action: manipulation;
+          flex: 1 1 auto;
+          min-width: 120px;
+        }
+
+        .filter-checkbox-label.selected-green {
+          background: rgba(34, 197, 94, 0.2);
+          border-color: rgba(34, 197, 94, 0.4);
+        }
+
+        .filter-checkbox-label.selected-blue {
+          background: rgba(59, 130, 246, 0.2);
+          border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        .filter-checkbox-label.selected-purple {
+          background: rgba(168, 85, 247, 0.2);
+          border-color: rgba(168, 85, 247, 0.4);
+        }
+
+        .filter-checkbox {
+          width: 18px;
+          height: 18px;
+          min-width: 18px;
+          min-height: 18px;
+          cursor: pointer;
+        }
+
+        .filter-checkbox-text {
+          font-size: 13px;
+          font-weight: 600;
+          color: #94a3b8;
+        }
+
+        .filter-checkbox-text.green {
+          color: #22c55e;
+        }
+
+        .filter-checkbox-text.blue {
+          color: #60a5fa;
+        }
+
+        .filter-checkbox-text.purple {
+          color: #a855f7;
+        }
+
+        /* Slider Controls - Touch Friendly */
+        .slider-container {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 12px;
+          background: rgba(30, 41, 59, 0.6);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          margin-bottom: 16px;
+        }
+
+        .slider-label-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .slider-label {
+          color: #94a3b8;
+          font-size: 13px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+        }
+
+        .slider-value {
+          font-size: 16px;
+          font-weight: 700;
+          min-width: 50px;
+          text-align: right;
+        }
+
+        .slider-value.green {
+          color: #22c55e;
+        }
+
+        .slider-value.orange {
+          color: #f59e0b;
+        }
+
+        input[type="range"] {
+          width: 100%;
+          height: 40px;
+          -webkit-appearance: none;
+          appearance: none;
+          background: transparent;
+          cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-track {
+          height: 8px;
+          border-radius: 4px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: currentColor;
+          cursor: pointer;
+          margin-top: -8px;
+        }
+
+        input[type="range"]::-moz-range-track {
+          height: 8px;
+          border-radius: 4px;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: currentColor;
+          cursor: pointer;
+          border: none;
+        }
+
+        /* Specific slider colors */
+        .slider-container:has(.slider-value.green) input[type="range"]::-webkit-slider-thumb,
+        .slider-container:has(.slider-value.green) input[type="range"]::-moz-range-thumb {
+          background: #22c55e;
+        }
+
+        .slider-container:has(.slider-value.orange) input[type="range"]::-webkit-slider-thumb,
+        .slider-container:has(.slider-value.orange) input[type="range"]::-moz-range-thumb {
+          background: #f59e0b;
+        }
+
+        /* Match Cards - Mobile Layout */
+        .match-card {
+          background: rgba(30, 41, 59, 0.6);
+          border-radius: 12px;
+          padding: 16px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          margin-bottom: 16px;
+        }
+
+        .match-card.has-ev {
+          background: rgba(34, 197, 94, 0.08);
+          border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .match-header {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+
+        .match-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .match-badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          align-items: center;
+        }
+
+        .badge {
+          padding: 6px 10px;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+
+        .badge.league {
+          background: rgba(34, 197, 94, 0.2);
+          color: #22c55e;
+        }
+
+        .badge.time {
+          color: #64748b;
+          background: rgba(100, 116, 139, 0.2);
+        }
+
+        .match-teams {
+          font-size: 16px;
+          font-weight: 700;
+          color: #e2e8f0;
+          line-height: 1.4;
+        }
+
+        .match-vs {
+          color: #64748b;
+          font-weight: 400;
+        }
+
+        .match-status {
+          align-self: flex-start;
+        }
+
+        .status-badge {
+          padding: 8px 12px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          white-space: nowrap;
+          min-height: 36px;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .status-badge.ev {
+          background: rgba(34, 197, 94, 0.2);
+          color: #22c55e;
+        }
+
+        .status-badge.no-ev {
+          background: rgba(100, 116, 139, 0.2);
+          color: #94a3b8;
+        }
+
+        /* EV Opportunity Cards - Mobile */
+        .ev-opportunities {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .ev-opportunities-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #22c55e;
+          margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+        }
+
+        .ev-card {
+          padding: 14px;
+          background: rgba(34, 197, 94, 0.08);
+          border-radius: 12px;
+          border: 1px solid rgba(34, 197, 94, 0.15);
+          margin-bottom: 12px;
+        }
+
+        .ev-card.high-ev {
+          background: rgba(34, 197, 94, 0.15);
+          border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .ev-header {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+
+        .ev-player-info {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .ev-player-name {
+          font-weight: 700;
+          color: #e2e8f0;
+          font-size: 14px;
+          word-break: break-word;
+        }
+
+        .ev-market-badge {
+          background: rgba(100, 116, 139, 0.3);
+          color: #e2e8f0;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        .ev-bet-type {
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        .ev-bet-type.over {
+          background: rgba(34, 197, 94, 0.2);
+          color: #22c55e;
+        }
+
+        .ev-bet-type.under {
+          background: rgba(239, 68, 68, 0.2);
+          color: #ef4444;
+        }
+
+        .ev-percentage {
+          font-size: 18px;
+          font-weight: 900;
+          color: #22c55e;
+          align-self: flex-start;
+        }
+
+        .ev-odds-info {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-size: 12px;
+          margin-bottom: 8px;
+        }
+
+        .ev-odds-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .odds-label {
+          color: #64748b;
+          display: flex;
+          align-items: center;
+        }
+
+        .odds-value {
+          font-weight: 700;
+        }
+
+        .odds-value.bet {
+          color: #22c55e;
+        }
+
+        .odds-value.fair {
+          color: #a5b4fc;
+        }
+
+        .odds-bookmaker {
+          color: #94a3b8;
+        }
+
+        /* Sharp odds chips */
+        .sharp-odds-container {
+          margin-top: 8px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          align-items: center;
+        }
+
+        .sharp-label {
+          font-size: 11px;
+          color: #64748b;
+          font-weight: 500;
+        }
+
+        .sharp-chip {
+          padding: 4px 8px;
+          border-radius: 6px;
+          border: 1px solid rgba(100, 116, 139, 0.4);
+          background: rgba(30, 41, 59, 0.8);
+          font-size: 10px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          min-width: 70px;
+        }
+
+        .sharp-chip-bookmaker {
+          color: #60a5fa;
+          font-weight: 700;
+          margin-bottom: 2px;
+        }
+
+        .sharp-chip-odds {
+          color: #e2e8f0;
+          font-weight: 600;
+        }
+
+        .sharp-chip-line {
+          color: #94a3b8;
+          font-size: 9px;
+        }
+
+        /* Action Buttons - Touch Friendly */
+        .ev-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 10px;
+        }
+
+        .action-button {
+          flex: 1;
+          min-width: 100px;
+          padding: 10px 14px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          min-height: 44px;
+          touch-action: manipulation;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .action-button.track {
+          border: 1px solid rgba(59, 130, 246, 0.5);
+          background: rgba(59, 130, 246, 0.15);
+          color: #60a5fa;
+        }
+
+        .action-button.tracked {
+          border: 1px solid rgba(34, 197, 94, 0.5);
+          background: rgba(34, 197, 94, 0.2);
+          color: #22c55e;
+        }
+
+        .action-button.remove {
+          border: 1px solid rgba(239, 68, 68, 0.5);
+          background: rgba(239, 68, 68, 0.15);
+          color: #f87171;
+        }
+
+        /* Tracking Input Form */
+        .tracking-form {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 10px;
+          background: rgba(59, 130, 246, 0.1);
+          border-radius: 8px;
+          margin-top: 8px;
+        }
+
+        .tracking-input {
+          width: 100%;
+          padding: 10px;
+          border-radius: 6px;
+          border: 1px solid rgba(59, 130, 246, 0.5);
+          background: rgba(30, 41, 59, 0.8);
+          color: #e2e8f0;
+          font-size: 14px;
+          font-weight: 600;
+          min-height: 44px;
+        }
+
+        .tracking-buttons {
+          display: flex;
+          gap: 8px;
+        }
+
+        .tracking-buttons button {
+          flex: 1;
+          min-height: 44px;
+        }
+
+        /* Tablet Breakpoint - 768px */
+        @media (min-width: 768px) {
+          .football-ev-container {
+            padding: 16px;
+          }
+
+          .header-section {
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+          }
+
+          .header-content {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+          }
+
+          .header-text h1 {
+            font-size: 24px;
+          }
+
+          .header-text p {
+            font-size: 13px;
+          }
+
+          .header-actions {
+            flex-direction: row;
+            width: auto;
+            align-items: center;
+          }
+
+          .refresh-button {
+            width: auto;
+          }
+
+          .stats-container {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+          }
+
+          .filter-section {
+            padding: 12px 16px;
+            margin-bottom: 20px;
+          }
+
+          .filter-options {
+            gap: 10px;
+          }
+
+          .filter-checkbox-label {
+            flex: 0 1 auto;
+            min-width: auto;
+          }
+
+          .slider-container {
+            flex-direction: row;
+            align-items: center;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+          }
+
+          .slider-label-row {
+            flex: 1;
+            gap: 16px;
+          }
+
+          .match-card {
+            padding: 20px;
+            margin-bottom: 20px;
+          }
+
+          .match-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: flex-start;
+          }
+
+          .match-meta {
+            flex: 1;
+          }
+
+          .match-badges {
+            gap: 8px;
+          }
+
+          .badge {
+            font-size: 12px;
+          }
+
+          .match-teams {
+            font-size: 18px;
+          }
+
+          .ev-card {
+            padding: 16px 20px;
+          }
+
+          .ev-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+          }
+
+          .ev-player-info {
+            gap: 8px;
+          }
+
+          .ev-player-name {
+            font-size: 15px;
+          }
+
+          .ev-market-badge {
+            font-size: 12px;
+          }
+
+          .ev-bet-type {
+            font-size: 12px;
+          }
+
+          .ev-odds-info {
+            flex-direction: row;
+            gap: 12px;
+          }
+
+          .action-button {
+            flex: 0;
+            min-width: auto;
+          }
+        }
+
+        /* Desktop Breakpoint - 1024px */
+        @media (min-width: 1024px) {
+          .football-ev-container {
+            padding: 24px;
+          }
+
+          .header-section {
+            border-radius: 20px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+          }
+
+          .header-text h1 {
+            font-size: 28px;
+          }
+
+          .header-text p {
+            font-size: 14px;
+          }
+
+          .stats-container {
+            margin-bottom: 24px;
+          }
+
+          .match-card {
+            border-radius: 16px;
+            margin-bottom: 24px;
+          }
+
+          .ev-opportunities {
+            margin-top: 16px;
+            padding-top: 16px;
+          }
+        }
+
+        /* Large Desktop - 1440px */
+        @media (min-width: 1440px) {
+          .football-ev-container {
+            max-width: 1400px;
+            margin: 0 auto;
+          }
         }
       `}</style>
     </div>
