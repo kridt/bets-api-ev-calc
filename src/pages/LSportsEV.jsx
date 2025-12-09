@@ -1,5 +1,6 @@
 // src/pages/LSportsEV.jsx - LSports Multi-Bookmaker EV System
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { io } from 'socket.io-client';
 
 // Backend URL - use environment variable in production
 const LSPORTS_API_URL = import.meta.env.VITE_LSPORTS_API_URL || 'http://localhost:3001';
@@ -7,6 +8,333 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Area, AreaChart, ComposedChart, ReferenceLine, Legend
 } from 'recharts';
+
+// ============ WEBSOCKET HOOK ============
+
+function useWebSocket(url, preferences) {
+  const [socket, setSocket] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    // Connect to WebSocket server
+    const newSocket = io(url, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+
+    socketRef.current = newSocket;
+
+    newSocket.on('connect', () => {
+      console.log('[WebSocket] Connected:', newSocket.id);
+      setIsConnected(true);
+      // Send preferences on connect
+      if (preferences) {
+        newSocket.emit('set-preferences', preferences);
+      }
+    });
+
+    newSocket.on('disconnect', () => {
+      console.log('[WebSocket] Disconnected');
+      setIsConnected(false);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.log('[WebSocket] Connection error:', error.message);
+      setIsConnected(false);
+    });
+
+    // Handle EV notifications
+    newSocket.on('ev-notifications', (data) => {
+      console.log('[WebSocket] EV Notifications:', data);
+      setNotifications(prev => [...prev, data]);
+    });
+
+    // Handle update summary
+    newSocket.on('ev-update-summary', (data) => {
+      console.log('[WebSocket] Update summary:', data);
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.close();
+    };
+  }, [url]);
+
+  // Update preferences when they change
+  useEffect(() => {
+    if (socketRef.current && socketRef.current.connected && preferences) {
+      socketRef.current.emit('set-preferences', preferences);
+    }
+  }, [preferences]);
+
+  // Function to clear notifications
+  const clearNotifications = useCallback(() => {
+    setNotifications([]);
+  }, []);
+
+  return { socket, isConnected, notifications, clearNotifications };
+}
+
+// ============ TOAST NOTIFICATION SYSTEM ============
+
+const ToastContext = {
+  toasts: [],
+  listeners: [],
+  addToast(message, type = 'info', duration = 3000) {
+    const id = Date.now();
+    const toast = { id, message, type, duration };
+    this.toasts.push(toast);
+    this.listeners.forEach(fn => fn([...this.toasts]));
+    setTimeout(() => this.removeToast(id), duration);
+    return id;
+  },
+  removeToast(id) {
+    this.toasts = this.toasts.filter(t => t.id !== id);
+    this.listeners.forEach(fn => fn([...this.toasts]));
+  },
+  subscribe(fn) {
+    this.listeners.push(fn);
+    return () => { this.listeners = this.listeners.filter(l => l !== fn); };
+  }
+};
+
+// Toast hook
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    return ToastContext.subscribe(setToasts);
+  }, []);
+
+  const showToast = useCallback((message, type = 'info') => {
+    ToastContext.addToast(message, type);
+  }, []);
+
+  return { toasts, showToast };
+}
+
+// Toast Container Component
+function ToastContainer({ toasts }) {
+  if (toasts.length === 0) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 20,
+      right: 20,
+      zIndex: 9999,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      maxWidth: '90vw'
+    }}>
+      {toasts.map(toast => (
+        <div
+          key={toast.id}
+          style={{
+            padding: '12px 20px',
+            borderRadius: 12,
+            background: toast.type === 'success' ? 'rgba(16, 185, 129, 0.95)' :
+                       toast.type === 'error' ? 'rgba(239, 68, 68, 0.95)' :
+                       toast.type === 'warning' ? 'rgba(245, 158, 11, 0.95)' :
+                       'rgba(59, 130, 246, 0.95)',
+            color: 'white',
+            fontWeight: 600,
+            fontSize: 14,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            animation: 'slideIn 0.3s ease',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10
+          }}
+        >
+          <span>
+            {toast.type === 'success' ? '✓' :
+             toast.type === 'error' ? '✕' :
+             toast.type === 'warning' ? '⚠' : 'ℹ'}
+          </span>
+          <span>{toast.message}</span>
+          <button
+            onClick={() => ToastContext.removeToast(toast.id)}
+            style={{
+              marginLeft: 8,
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              borderRadius: 4,
+              padding: '2px 8px',
+              color: 'white',
+              cursor: 'pointer',
+              fontSize: 12
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============ LOCAL STORAGE HOOK ============
+
+function useLocalStorage(key, initialValue) {
+  const [storedValue, setStoredValue] = useState(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch {
+      return initialValue;
+    }
+  });
+
+  const setValue = useCallback((value) => {
+    try {
+      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      setStoredValue(valueToStore);
+      window.localStorage.setItem(key, JSON.stringify(valueToStore));
+    } catch (error) {
+      console.error('localStorage error:', error);
+    }
+  }, [key, storedValue]);
+
+  return [storedValue, setValue];
+}
+
+// ============ CLIPBOARD UTILITY ============
+
+async function copyToClipboard(text, showToast) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast?.('Copied to clipboard!', 'success');
+    return true;
+  } catch {
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast?.('Copied to clipboard!', 'success');
+    return true;
+  }
+}
+
+// ============ SKELETON LOADER COMPONENTS ============
+
+function SkeletonPulse({ width = '100%', height = 20, borderRadius = 8, style = {} }) {
+  return (
+    <div
+      style={{
+        width,
+        height,
+        borderRadius,
+        background: 'linear-gradient(90deg, rgba(100,116,139,0.1) 25%, rgba(100,116,139,0.2) 50%, rgba(100,116,139,0.1) 75%)',
+        backgroundSize: '200% 100%',
+        animation: 'shimmer 1.5s infinite',
+        ...style
+      }}
+    />
+  );
+}
+
+function SkeletonMatchCard() {
+  return (
+    <div style={{
+      background: 'rgba(30, 41, 59, 0.5)',
+      borderRadius: 16,
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      padding: 20
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ flex: 1 }}>
+          <SkeletonPulse width={60} height={24} borderRadius={20} style={{ marginBottom: 8 }} />
+          <SkeletonPulse width="80%" height={22} style={{ marginBottom: 6 }} />
+          <SkeletonPulse width="60%" height={14} />
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <SkeletonPulse width={80} height={32} style={{ marginBottom: 4 }} />
+          <SkeletonPulse width={50} height={12} />
+        </div>
+      </div>
+      {[1, 2, 3].map(i => (
+        <div key={i} style={{
+          padding: 16,
+          borderRadius: 12,
+          background: 'rgba(15, 23, 42, 0.5)',
+          marginTop: 12
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div>
+              <SkeletonPulse width={80} height={16} style={{ marginBottom: 6 }} />
+              <SkeletonPulse width={150} height={14} />
+            </div>
+            <SkeletonPulse width={60} height={24} />
+          </div>
+          <SkeletonPulse width="100%" height={40} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SkeletonStatBox() {
+  return (
+    <div style={{
+      padding: 12,
+      background: 'rgba(30, 41, 59, 0.5)',
+      borderRadius: 12,
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      textAlign: 'center'
+    }}>
+      <SkeletonPulse width={60} height={10} style={{ margin: '0 auto 8px' }} />
+      <SkeletonPulse width={50} height={24} style={{ margin: '0 auto' }} />
+    </div>
+  );
+}
+
+// CSS Animation styles (inject once)
+if (typeof document !== 'undefined' && !document.getElementById('lsports-animations')) {
+  const style = document.createElement('style');
+  style.id = 'lsports-animations';
+  style.textContent = `
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Mobile responsive styles */
+    @media (max-width: 768px) {
+      .lsports-header { padding: 16px !important; }
+      .lsports-header h1 { font-size: 20px !important; }
+      .lsports-filters { flex-direction: column !important; }
+      .lsports-filters > div { width: 100% !important; }
+      .lsports-league-filters { max-height: 120px; overflow-y: auto; }
+      .lsports-stat-grid { grid-template-columns: repeat(3, 1fr) !important; }
+      .lsports-bet-card { padding: 12px !important; }
+      .lsports-bookmaker-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    }
+
+    @media (max-width: 480px) {
+      .lsports-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+      .lsports-tab-btn { padding: 8px 12px !important; font-size: 12px !important; }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 // Market categories
 const CATEGORIES = [
@@ -98,6 +426,9 @@ export default function LSportsEV() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
+  // Toast notifications
+  const { toasts, showToast } = useToast();
+
   // Tabs
   const [activeTab, setActiveTab] = useState('ev');
   const [movers, setMovers] = useState([]);
@@ -113,21 +444,21 @@ export default function LSportsEV() {
   const [countdown, setCountdown] = useState(180); // 3 minutes
   const AUTO_REFRESH_INTERVAL = 180; // seconds
 
-  // Bankroll Management
-  const [bankroll, setBankroll] = useState(1000); // Default 1000
-  const [unitValue, setUnitValue] = useState(40);  // 1 unit = 40 (4% of bankroll)
+  // Bankroll Management - persisted to localStorage
+  const [bankroll, setBankroll] = useLocalStorage('lsports_bankroll', 1000);
+  const [unitValue, setUnitValue] = useState(() => bankroll * 0.04);
   const [showBankroll, setShowBankroll] = useState(true);
 
-  // Filters
-  const [selectedLeague, setSelectedLeague] = useState('all');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [sortBy, setSortBy] = useState('ev_high');
-  const [minEV, setMinEV] = useState(5);
-  const [maxOdds, setMaxOdds] = useState(5.0);
+  // Filters - persisted to localStorage
+  const [selectedLeague, setSelectedLeague] = useLocalStorage('lsports_league', 'all');
+  const [selectedCategory, setSelectedCategory] = useLocalStorage('lsports_category', 'All');
+  const [sortBy, setSortBy] = useLocalStorage('lsports_sort', 'ev_high');
+  const [minEV, setMinEV] = useLocalStorage('lsports_minEV', 5);
+  const [maxOdds, setMaxOdds] = useLocalStorage('lsports_maxOdds', 5.0);
   const [availableBookmakers, setAvailableBookmakers] = useState([]);
   const [selectedBookmakers, setSelectedBookmakers] = useState([]); // All bookmakers for fair odds calculation
-  const [playableBookmakers, setPlayableBookmakers] = useState(['Bet365', 'Unibet', 'GGBet']); // Bookmakers user can bet on
-  const [showOnlyPositiveEV, setShowOnlyPositiveEV] = useState(true);
+  const [playableBookmakers, setPlayableBookmakers] = useLocalStorage('lsports_playableBooks', ['Bet365', 'Unibet', 'BWin']);
+  const [showOnlyPositiveEV, setShowOnlyPositiveEV] = useLocalStorage('lsports_positiveEVOnly', true);
   const [leaguesInResults, setLeaguesInResults] = useState([]);
 
   // Expanded matches
@@ -135,6 +466,126 @@ export default function LSportsEV() {
 
   // Show info panel
   const [showInfo, setShowInfo] = useState(false);
+
+  // ============ WEBSOCKET & NOTIFICATIONS ============
+
+  // Notification settings - persisted to localStorage
+  const [notifyNewEV, setNotifyNewEV] = useLocalStorage('lsports_notifyNewEV', true);
+  const [notifyEVIncrease, setNotifyEVIncrease] = useLocalStorage('lsports_notifyEVIncrease', true);
+  const [notifyEVDrop, setNotifyEVDrop] = useLocalStorage('lsports_notifyEVDrop', true);
+  const [minEVNotify, setMinEVNotify] = useLocalStorage('lsports_minEVNotify', 3);
+  const [evChangeThreshold, setEVChangeThreshold] = useLocalStorage('lsports_evChangeThreshold', 2);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [browserNotificationsEnabled, setBrowserNotificationsEnabled] = useState(false);
+
+  // WebSocket preferences object
+  const wsPreferences = useMemo(() => ({
+    selectedBookmakers: playableBookmakers,
+    notifyNewEV,
+    notifyEVIncrease,
+    notifyEVDrop,
+    minEVThreshold: minEVNotify,
+    evChangeThreshold
+  }), [playableBookmakers, notifyNewEV, notifyEVIncrease, notifyEVDrop, minEVNotify, evChangeThreshold]);
+
+  // Connect to WebSocket
+  const { socket, isConnected, notifications, clearNotifications } = useWebSocket(LSPORTS_API_URL, wsPreferences);
+
+  // Check browser notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window) {
+      setBrowserNotificationsEnabled(Notification.permission === 'granted');
+    }
+  }, []);
+
+  // Handle WebSocket notifications
+  useEffect(() => {
+    if (notifications.length === 0) return;
+
+    const latestNotification = notifications[notifications.length - 1];
+
+    // Show toasts for new +EV bets
+    latestNotification.newPositiveEV?.forEach(bet => {
+      showToast(
+        `🟢 New +EV: ${bet.match} - ${bet.selection} @ ${bet.bookmaker} (+${bet.ev.toFixed(1)}%)`,
+        'success'
+      );
+      // Browser notification
+      if (browserNotificationsEnabled && document.hidden) {
+        new Notification('New +EV Bet!', {
+          body: `${bet.selection} - ${bet.bookmaker} @ ${bet.odds} (+${bet.ev.toFixed(1)}% EV)`,
+          icon: '/favicon.ico',
+          tag: `new-ev-${bet.fixtureId}-${bet.selection}`
+        });
+      }
+    });
+
+    // Show toasts for EV increases
+    latestNotification.evIncreased?.forEach(bet => {
+      showToast(
+        `🔥 EV Up: ${bet.match} - ${bet.selection} now +${bet.ev.toFixed(1)}% (was ${bet.previousEV.toFixed(1)}%)`,
+        'success'
+      );
+      if (browserNotificationsEnabled && document.hidden) {
+        new Notification('EV Increased!', {
+          body: `${bet.selection} @ ${bet.bookmaker}: +${bet.change.toFixed(1)}% change`,
+          icon: '/favicon.ico',
+          tag: `ev-up-${bet.fixtureId}-${bet.selection}`
+        });
+      }
+    });
+
+    // Show toasts for EV drops
+    latestNotification.evDropped?.forEach(bet => {
+      showToast(
+        `⚠️ EV Drop: ${bet.match} - ${bet.selection} now ${bet.ev.toFixed(1)}% (was +${bet.previousEV.toFixed(1)}%)`,
+        'warning'
+      );
+    });
+
+    // Clear processed notifications
+    clearNotifications();
+  }, [notifications, showToast, browserNotificationsEnabled, clearNotifications]);
+
+  // Handle full updates from WebSocket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleFullUpdate = (data) => {
+      console.log('[WebSocket] Received full update');
+      if (data.matches) {
+        setMatches(data.matches);
+        setLastUpdated(data.lastUpdated);
+        // Reset countdown since we got fresh data
+        setCountdown(AUTO_REFRESH_INTERVAL);
+      }
+      if (data.bookmakers) {
+        setAvailableBookmakers(data.bookmakers);
+      }
+    };
+
+    socket.on('full-update', handleFullUpdate);
+
+    return () => {
+      socket.off('full-update', handleFullUpdate);
+    };
+  }, [socket]);
+
+  // Request browser notification permission
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission();
+      setBrowserNotificationsEnabled(permission === 'granted');
+      if (permission === 'granted') {
+        showToast('Browser notifications enabled!', 'success');
+      }
+    }
+  };
+
+  // Update unit value when bankroll changes
+  useEffect(() => {
+    setUnitValue(bankroll * 0.04);
+  }, [bankroll]);
 
   useEffect(() => {
     fetchEVBets();
@@ -263,9 +714,9 @@ export default function LSportsEV() {
     }
   };
 
-  const fetchEVBets = async () => {
+  const fetchEVBets = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
 
       // Fetch from backend server (refreshes every 60s)
@@ -289,6 +740,9 @@ export default function LSportsEV() {
 
       console.log(`Received ${data.matches?.length || 0} matches with ${data.totalBets || 0} bets`);
 
+      const prevBetCount = matches.reduce((sum, m) => sum + m.valueBets.length, 0);
+      const newBetCount = (data.matches || []).reduce((sum, m) => sum + m.valueBets.length, 0);
+
       setMatches(data.matches || []);
       setAvailableBookmakers(data.availableBookmakers || []);
       setLeaguesInResults(data.leaguesInResults || []);
@@ -299,9 +753,18 @@ export default function LSportsEV() {
         setSelectedBookmakers(data.availableBookmakers);
       }
 
+      // Show toast on successful refresh (only if not first load)
+      if (!loading && newBetCount !== prevBetCount) {
+        const diff = newBetCount - prevBetCount;
+        if (diff > 0) {
+          showToast(`${diff} new value bet${diff > 1 ? 's' : ''} found!`, 'success');
+        }
+      }
+
     } catch (err) {
       console.error('Error fetching EV bets:', err);
       setError(err.message);
+      showToast(`Failed to fetch data: ${err.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -309,14 +772,16 @@ export default function LSportsEV() {
 
   const refreshData = async () => {
     setRefreshing(true);
+    showToast('Refreshing data...', 'info');
     // Force backend refresh then fetch
     try {
       await fetch(`${LSPORTS_API_URL}/api/refresh`, { method: 'POST' });
     } catch (e) {
       console.log('Backend refresh failed, using cached data');
     }
-    await fetchEVBets();
+    await fetchEVBets(true); // silent mode - don't show loading
     setRefreshing(false);
+    showToast('Data refreshed!', 'success');
   };
 
   // Filter and sort matches
@@ -423,6 +888,32 @@ export default function LSportsEV() {
     return { totalMatches: filteredMatches.length, totalBets, avgEV, positiveEVBets };
   }, [filteredMatches]);
 
+  // Bookmaker stats - count +EV bets per bookmaker
+  const bookmakerStats = useMemo(() => {
+    const stats = {};
+
+    // Initialize all bookmakers with 0
+    availableBookmakers.forEach(bm => {
+      stats[bm] = { total: 0, positiveEV: 0 };
+    });
+
+    // Count bets per bookmaker from unfiltered matches
+    matches.forEach(match => {
+      match.valueBets.forEach(bet => {
+        bet.allBookmakers.forEach(bm => {
+          if (stats[bm.bookmaker]) {
+            stats[bm.bookmaker].total++;
+            if (bm.ev > 0) {
+              stats[bm.bookmaker].positiveEV++;
+            }
+          }
+        });
+      });
+    });
+
+    return stats;
+  }, [matches, availableBookmakers]);
+
   const toggleMatch = (fixtureId) => {
     setExpandedMatches(prev => {
       const newSet = new Set(prev);
@@ -449,13 +940,53 @@ export default function LSportsEV() {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: 60 }}>
-        <div style={{ fontSize: 48, marginBottom: 20 }}>⚽</div>
-        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
-          Loading LSports EV Data...
+      <div>
+        <ToastContainer toasts={toasts} />
+        {/* Header Skeleton */}
+        <div className="lsports-header" style={{
+          marginBottom: 24,
+          padding: 24,
+          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
+          borderRadius: 20,
+          border: '1px solid rgba(59, 130, 246, 0.3)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <div style={{ fontSize: 32 }}>⚽</div>
+            <div>
+              <SkeletonPulse width={250} height={28} style={{ marginBottom: 6 }} />
+              <SkeletonPulse width={180} height={14} />
+            </div>
+          </div>
+
+          {/* Loading message */}
+          <div style={{
+            textAlign: 'center',
+            padding: '12px 20px',
+            background: 'rgba(59, 130, 246, 0.1)',
+            borderRadius: 12,
+            marginBottom: 20
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#3b82f6', marginBottom: 4 }}>
+              Loading LSports EV Data...
+            </div>
+            <div style={{ fontSize: 12, color: '#94a3b8' }}>
+              Fetching multi-bookmaker odds from LSports TRADE360
+            </div>
+          </div>
+
+          {/* Stats skeleton */}
+          <div className="lsports-stat-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+            gap: 12
+          }}>
+            {[1, 2, 3, 4, 5, 6].map(i => <SkeletonStatBox key={i} />)}
+          </div>
         </div>
-        <div style={{ fontSize: 14, color: '#94a3b8' }}>
-          Fetching multi-bookmaker odds from LSports TRADE360
+
+        {/* Match cards skeleton */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {[1, 2, 3].map(i => <SkeletonMatchCard key={i} />)}
         </div>
       </div>
     );
@@ -480,8 +1011,11 @@ export default function LSportsEV() {
 
   return (
     <div>
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} />
+
       {/* Header */}
-      <div style={{
+      <div className="lsports-header" style={{
         marginBottom: 24,
         padding: 24,
         background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
@@ -526,17 +1060,217 @@ export default function LSportsEV() {
           >
             {showInfo ? '✕ Close Guide' : '❓ How It Works'}
           </button>
+
+          {/* WebSocket Status & Notification Settings */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+            {/* WebSocket Status Indicator */}
+            <div
+              title={isConnected ? 'Real-time updates active' : 'Connecting to real-time updates...'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 12px',
+                borderRadius: 8,
+                background: isConnected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                border: `1px solid ${isConnected ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+              }}
+            >
+              <span style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: isConnected ? '#10b981' : '#ef4444',
+                boxShadow: isConnected ? '0 0 8px #10b981' : '0 0 8px #ef4444',
+                animation: isConnected ? 'pulse 2s infinite' : 'none'
+              }} />
+              <span style={{ fontSize: 12, color: isConnected ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+                {isConnected ? 'LIVE' : 'Offline'}
+              </span>
+            </div>
+
+            {/* Notification Settings Button */}
+            <button
+              onClick={() => setShowNotificationPanel(!showNotificationPanel)}
+              style={{
+                padding: '12px 16px',
+                borderRadius: 12,
+                border: 'none',
+                background: showNotificationPanel
+                  ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                  : 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                color: 'white',
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+              }}
+            >
+              🔔 Alerts
+            </button>
+          </div>
         </div>
+
+        {/* Notification Settings Panel */}
+        {showNotificationPanel && (
+          <div style={{
+            marginBottom: 16,
+            padding: 20,
+            background: 'rgba(99, 102, 241, 0.1)',
+            borderRadius: 16,
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, color: '#e2e8f0', fontSize: 18 }}>🔔 Notification Settings</h3>
+              <button
+                onClick={() => setShowNotificationPanel(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#94a3b8',
+                  fontSize: 20,
+                  cursor: 'pointer'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 16 }}>
+              Get notified when new +EV bets appear for your selected bookmakers ({playableBookmakers.join(', ')})
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+              {/* Browser Notifications */}
+              <div style={{
+                padding: 16,
+                background: 'rgba(0,0,0,0.2)',
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.1)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ color: '#e2e8f0', fontWeight: 600 }}>Browser Notifications</span>
+                  {browserNotificationsEnabled ? (
+                    <span style={{ color: '#10b981', fontSize: 12 }}>✓ Enabled</span>
+                  ) : (
+                    <button
+                      onClick={requestNotificationPermission}
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: 6,
+                        border: 'none',
+                        background: '#6366f1',
+                        color: 'white',
+                        fontSize: 12,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Enable
+                    </button>
+                  )}
+                </div>
+                <p style={{ color: '#64748b', fontSize: 12, margin: 0 }}>
+                  Get push notifications even when the tab is hidden
+                </p>
+              </div>
+
+              {/* Notification Types */}
+              <div style={{
+                padding: 16,
+                background: 'rgba(0,0,0,0.2)',
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.1)'
+              }}>
+                <span style={{ color: '#e2e8f0', fontWeight: 600, display: 'block', marginBottom: 12 }}>Notify me when:</span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={notifyNewEV}
+                    onChange={(e) => setNotifyNewEV(e.target.checked)}
+                    style={{ width: 16, height: 16 }}
+                  />
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>New +EV bet appears</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={notifyEVIncrease}
+                    onChange={(e) => setNotifyEVIncrease(e.target.checked)}
+                    style={{ width: 16, height: 16 }}
+                  />
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>EV increases significantly</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={notifyEVDrop}
+                    onChange={(e) => setNotifyEVDrop(e.target.checked)}
+                    style={{ width: 16, height: 16 }}
+                  />
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>EV drops (line moving against)</span>
+                </label>
+              </div>
+
+              {/* Thresholds */}
+              <div style={{
+                padding: 16,
+                background: 'rgba(0,0,0,0.2)',
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.1)'
+              }}>
+                <span style={{ color: '#e2e8f0', fontWeight: 600, display: 'block', marginBottom: 12 }}>Thresholds:</span>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ color: '#94a3b8', fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    Min EV for notifications: {minEVNotify}%
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={minEVNotify}
+                    onChange={(e) => setMinEVNotify(parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ color: '#94a3b8', fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    Min EV change to notify: {evChangeThreshold}%
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    step="0.5"
+                    value={evChangeThreshold}
+                    onChange={(e) => setEVChangeThreshold(parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, padding: 12, background: 'rgba(16, 185, 129, 0.1)', borderRadius: 8, border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              <p style={{ color: '#10b981', fontSize: 13, margin: 0 }}>
+                ✓ Connected to real-time updates • Notifications filtered for: <strong>{playableBookmakers.join(', ')}</strong>
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Info Panel */}
         {showInfo && <InfoPanel onClose={() => setShowInfo(false)} />}
 
         {/* Tab Selector */}
-        <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+        <div style={{ marginBottom: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              className="lsports-tab-btn"
               style={{
                 padding: '12px 24px',
                 borderRadius: 12,
@@ -576,7 +1310,7 @@ export default function LSportsEV() {
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>
             League
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="lsports-league-filters" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {LEAGUES.map(league => (
               <button
                 key={league.id}
@@ -638,7 +1372,7 @@ export default function LSportsEV() {
         </div>
 
         {/* Filters Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 16 }}>
+        <div className="lsports-filters" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 16 }}>
           {/* Sort By */}
           <div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase' }}>
@@ -791,7 +1525,8 @@ export default function LSportsEV() {
               {availableBookmakers.map(bookmaker => {
                 const isSelected = playableBookmakers.includes(bookmaker);
                 const isPinnacle = bookmaker === 'Pinnacle';
-                const isDefault = ['Bet365', 'Unibet'].includes(bookmaker);
+                const isDefault = ['Bet365', 'Unibet', 'BWin'].includes(bookmaker);
+                const bmStats = bookmakerStats[bookmaker] || { total: 0, positiveEV: 0 };
                 return (
                   <button
                     key={bookmaker}
@@ -813,13 +1548,35 @@ export default function LSportsEV() {
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 6
+                      gap: 6,
+                      position: 'relative'
                     }}
                   >
                     {isSelected && <span>✓</span>}
                     {bookmaker}
                     {isPinnacle && <span style={{ color: '#f59e0b' }}>★</span>}
                     {isDefault && !isPinnacle && <span style={{ color: '#3b82f6', fontSize: 10 }}>(default)</span>}
+                    {/* +EV Count Badge */}
+                    {bmStats.positiveEV > 0 && (
+                      <span
+                        title={`${bmStats.positiveEV} +EV bets / ${bmStats.total} total markets`}
+                        style={{
+                          background: isSelected
+                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                            : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                          color: 'white',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          borderRadius: 10,
+                          minWidth: 18,
+                          textAlign: 'center',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }}
+                      >
+                        {bmStats.positiveEV}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -873,7 +1630,7 @@ export default function LSportsEV() {
         )}
 
         {/* Stats */}
-        <div style={{
+        <div className="lsports-stat-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
           gap: 12
@@ -1080,6 +1837,7 @@ export default function LSportsEV() {
                   playableBookmakers={playableBookmakers}
                   unitValue={unitValue}
                   onTrackBet={trackBet}
+                  showToast={showToast}
                 />
               ))}
             </div>
@@ -1404,7 +2162,7 @@ function TrackedBetCard({ bet, onUpdateResult, onDelete, formatDate }) {
 }
 
 // Match Card Component
-function MatchCard({ match, rank, expanded, onToggle, formatDate, playableBookmakers, unitValue, onTrackBet }) {
+function MatchCard({ match, rank, expanded, onToggle, formatDate, playableBookmakers, unitValue, onTrackBet, showToast }) {
   const topBets = expanded ? match.valueBets : match.valueBets.slice(0, 3);
 
   return (
@@ -1466,7 +2224,7 @@ function MatchCard({ match, rank, expanded, onToggle, formatDate, playableBookma
       <div style={{ padding: '0 20px 20px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {topBets.map((bet, idx) => (
-            <BetCard key={idx} bet={bet} match={match} playableBookmakers={playableBookmakers} unitValue={unitValue} onTrackBet={onTrackBet} />
+            <BetCard key={idx} bet={bet} match={match} playableBookmakers={playableBookmakers} unitValue={unitValue} onTrackBet={onTrackBet} showToast={showToast} />
           ))}
         </div>
 
@@ -1495,7 +2253,7 @@ function MatchCard({ match, rank, expanded, onToggle, formatDate, playableBookma
 }
 
 // Bet Card Component
-function BetCard({ bet, match, playableBookmakers, unitValue, onTrackBet }) {
+function BetCard({ bet, match, playableBookmakers, unitValue, onTrackBet, showToast }) {
   const [showAll, setShowAll] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
   const [tracked, setTracked] = useState(false);
@@ -1515,9 +2273,23 @@ function BetCard({ bet, match, playableBookmakers, unitValue, onTrackBet }) {
     setIsTracking(false);
     if (result.success) {
       setTracked(true);
+      showToast?.('Bet tracked successfully!', 'success');
     } else {
-      alert(`Failed to track bet: ${result.error || 'Unknown error'}`);
+      showToast?.(`Failed to track bet: ${result.error || 'Unknown error'}`, 'error');
     }
+  };
+
+  // Copy bet details to clipboard
+  const handleCopyBet = () => {
+    const betDetails = `${match.homeTeam} vs ${match.awayTeam}
+${match.league} - ${new Date(match.kickoff).toLocaleString()}
+Market: ${bet.marketName}
+Selection: ${bet.selection}${bet.line ? ` (${bet.line})` : ''}
+Odds: ${bet.bestOdds.toFixed(2)} @ ${bet.bestBookmaker}
+EV: +${bet.bestEV.toFixed(2)}%
+Fair Odds: ${bet.fairOdds}`;
+
+    copyToClipboard(betDetails, showToast);
   };
 
   // Separate playable and non-playable bookmakers
@@ -1632,7 +2404,7 @@ function BetCard({ bet, match, playableBookmakers, unitValue, onTrackBet }) {
             </button>
           )}
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#f59e0b' }}>
               Stake: ${stake.toFixed(2)}
@@ -1641,6 +2413,27 @@ function BetCard({ bet, match, playableBookmakers, unitValue, onTrackBet }) {
               Profit: ${potentialProfit.toFixed(2)}
             </div>
           </div>
+          {/* Copy Button */}
+          <button
+            onClick={handleCopyBet}
+            title="Copy bet details"
+            style={{
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'rgba(100, 116, 139, 0.3)',
+              color: '#94a3b8',
+              fontWeight: 600,
+              fontSize: 12,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4
+            }}
+          >
+            📋
+          </button>
+          {/* Track Button */}
           <button
             onClick={handleTrackBet}
             disabled={isTracking || tracked}
@@ -1661,7 +2454,7 @@ function BetCard({ bet, match, playableBookmakers, unitValue, onTrackBet }) {
               gap: 6
             }}
           >
-            {tracked ? '✓ Tracked' : isTracking ? '...' : '📋 Track'}
+            {tracked ? '✓ Tracked' : isTracking ? '...' : 'Track'}
           </button>
         </div>
       </div>
