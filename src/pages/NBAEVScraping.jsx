@@ -5,6 +5,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import ConnectionStatus from '../components/ConnectionStatus';
+import { BetTracker } from '../services/betTracker';
 
 const ODDS_API_KEY = '811e5fb0efa75d2b92e800cb55b60b30f62af8c21da06c4b2952eb516bee0a2e';
 const ODDS_API_BASE = 'https://api2.odds-api.io/v3';
@@ -501,8 +502,8 @@ export default function NBAEVScraping() {
     setCustomUnits('');
   };
 
-  // Confirm and track a bet - save to localStorage for stat tracking
-  const confirmTrackBet = (bet, match) => {
+  // Confirm and track a bet - save to localStorage and Supabase for stat tracking
+  const confirmTrackBet = async (bet, match) => {
     const betId = generateBetId(bet);
 
     // Check if already tracked
@@ -540,10 +541,38 @@ export default function NBAEVScraping() {
       matchDate: match.date,
     };
 
+    // Save to localStorage for local display
     const newTrackedBets = [...trackedBets, trackedBet];
     setTrackedBets(newTrackedBets);
     saveToStorage(TRACKED_BETS_KEY, newTrackedBets);
     console.log('[Track] Bet tracked with actual odds:', trackedBet);
+
+    // Save to Supabase for universal dashboard
+    try {
+      await BetTracker.trackBet({
+        sport: 'nba',
+        matchId: match.id,
+        matchName: `${match.home} vs ${match.away}`,
+        matchDate: match.date,
+        league: 'NBA',
+        player: bet.player,
+        market: bet.market,
+        line: bet.line,
+        betType: bet.betType,
+        bookmaker: bet.bookmaker,
+        displayedOdds: bet.odds,
+        actualOdds,
+        fairOdds: bet.fairOdds,
+        fairProb: bet.fairProb,
+        displayedEv: bet.evPercent,
+        actualEv: actualEV,
+        stake: 0,
+        units: units,
+      });
+      console.log('[NBA] Bet tracked to Supabase');
+    } catch (err) {
+      console.error('[NBA] Failed to track bet to Supabase:', err);
+    }
 
     // Reset tracking state
     cancelTracking();

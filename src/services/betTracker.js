@@ -1,11 +1,16 @@
 // src/services/betTracker.js
 // Universal bet tracking service with Supabase
 
-import { supabase, getDeviceId, getUsername } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, getDeviceId, getUsername } from '../lib/supabase';
 
 export const BetTracker = {
   // Track a new bet
   async trackBet(bet) {
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn('[BetTracker] Supabase not configured, skipping save');
+      return null;
+    }
+
     const deviceId = getDeviceId();
     const username = getUsername();
 
@@ -48,6 +53,11 @@ export const BetTracker = {
 
   // Update bet result
   async updateResult(betId, result, payout = null) {
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn('[BetTracker] Supabase not configured');
+      return null;
+    }
+
     const profit = payout !== null ? payout : (result === 'won' ? null : result === 'lost' ? null : 0);
 
     const { data, error } = await supabase
@@ -84,6 +94,7 @@ export const BetTracker = {
 
   // Mark bet as won
   async markWon(betId, stake) {
+    if (!isSupabaseConfigured || !supabase) return null;
     const { data: bet } = await supabase
       .from('tracked_bets')
       .select('actual_odds')
@@ -108,6 +119,7 @@ export const BetTracker = {
 
   // Delete a bet
   async deleteBet(betId) {
+    if (!isSupabaseConfigured || !supabase) return false;
     const { error } = await supabase
       .from('tracked_bets')
       .delete()
@@ -123,6 +135,7 @@ export const BetTracker = {
 
   // Get all bets for current device
   async getMyBets(options = {}) {
+    if (!isSupabaseConfigured || !supabase) return [];
     const deviceId = getDeviceId();
     let query = supabase
       .from('tracked_bets')
@@ -147,6 +160,7 @@ export const BetTracker = {
 
   // Get all bets (public dashboard)
   async getAllBets(options = {}) {
+    if (!isSupabaseConfigured || !supabase) return [];
     let query = supabase
       .from('tracked_bets')
       .select('*')
@@ -297,6 +311,10 @@ export const BetTracker = {
 
   // Subscribe to real-time updates
   subscribeToUpdates(callback) {
+    if (!isSupabaseConfigured || !supabase) {
+      return () => {}; // Return no-op unsubscribe
+    }
+
     const subscription = supabase
       .channel('tracked_bets_changes')
       .on(

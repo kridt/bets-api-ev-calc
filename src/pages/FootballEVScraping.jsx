@@ -7,6 +7,7 @@ import footballLeagues from "../config/footballLeagues.json";
 import InlinePlayerStats from "../components/InlinePlayerStats";
 import { useSocket } from '../hooks/useSocket';
 import ConnectionStatus from '../components/ConnectionStatus';
+import { BetTracker } from '../services/betTracker';
 
 const ODDS_API_KEY =
   "811e5fb0efa75d2b92e800cb55b60b30f62af8c21da06c4b2952eb516bee0a2e";
@@ -449,7 +450,7 @@ export default function FootballEVScraping() {
     setCustomOdds("");
   };
 
-  const confirmTrackBet = (bet, match) => {
+  const confirmTrackBet = async (bet, match) => {
     const betId = generateBetId(bet);
     if (trackedBets.some((tb) => tb.id === betId)) {
       cancelTracking();
@@ -476,9 +477,39 @@ export default function FootballEVScraping() {
       matchDate: match.date,
       league: match.league?.name,
     };
+
+    // Save to localStorage for local display
     const newTrackedBets = [...trackedBets, trackedBet];
     setTrackedBets(newTrackedBets);
     saveToStorage(TRACKED_BETS_KEY, newTrackedBets);
+
+    // Save to Supabase for universal dashboard
+    try {
+      await BetTracker.trackBet({
+        sport: 'football',
+        matchId: match.id,
+        matchName: `${match.home} vs ${match.away}`,
+        matchDate: match.date,
+        league: match.league?.name,
+        player: bet.player,
+        market: bet.market,
+        line: bet.line,
+        betType: bet.betType,
+        bookmaker: bet.bookmaker,
+        displayedOdds: bet.odds,
+        actualOdds,
+        fairOdds: bet.fairOdds,
+        fairProb: bet.fairProb,
+        displayedEv: bet.evPercent,
+        actualEv: actualEV,
+        stake: 0,
+        units: 1,
+      });
+      console.log('[Football] Bet tracked to Supabase');
+    } catch (err) {
+      console.error('[Football] Failed to track bet to Supabase:', err);
+    }
+
     cancelTracking();
   };
 
