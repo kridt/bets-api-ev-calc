@@ -645,7 +645,7 @@ export default function FootballEVScraping() {
           if (isNaN(overOdds)) continue;
 
           props.push({
-            player: `Line ${line}`, // Use line as identifier for match markets
+            player: market.name, // Use market name for match markets (e.g., "Corners Totals")
             market: marketKey,
             marketName: market.name,
             marketType,
@@ -669,7 +669,7 @@ export default function FootballEVScraping() {
 
           // For spreads, we treat home as "over" and away as "under" for consistency
           props.push({
-            player: `Line ${line}`, // Use line as identifier
+            player: market.name, // Use market name for match markets (e.g., "Match Spread")
             market: marketKey,
             marketName: market.name,
             marketType,
