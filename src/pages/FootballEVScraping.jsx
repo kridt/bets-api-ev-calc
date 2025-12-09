@@ -164,16 +164,16 @@ const AVAILABLE_MARKETS = [
     apiNames: ["Player Tackles"],
     marketType: "player",
     oneWay: true,
-    enabled: true,
+    enabled: false, // Disabled - only Bet365 has this, Kambi doesn't
     category: "player",
   },
   {
     key: "player_fouls",
     label: "Player Fouls",
-    apiNames: ["Player Fouls Committed"],
+    apiNames: ["Player Fouls Committed", "Player Fouls"], // Both Bet365 and Kambi variants
     marketType: "player",
     oneWay: true,
-    enabled: false,
+    enabled: true, // Enabled - both books have this
     category: "player",
   },
   {
@@ -183,6 +183,15 @@ const AVAILABLE_MARKETS = [
     marketType: "player",
     oneWay: true,
     enabled: false,
+    category: "player",
+  },
+  {
+    key: "goalkeeper_saves",
+    label: "Goalkeeper Saves",
+    apiNames: ["Goalkeeper Saves"],
+    marketType: "player",
+    oneWay: false, // Kambi has both over/under
+    enabled: true, // Enabled - both books have this
     category: "player",
   },
 ];
@@ -918,8 +927,8 @@ export default function FootballEVScraping() {
 
       if (isOneWayMarket) {
         // ONE-WAY MARKET (Goalscorer, etc.) - Compare odds across bookmakers
-        // Since there's no "under" side, we can't traditionally de-vig
-        // Instead, we compare odds across bookmakers and look for outliers
+        // Strategy: Use Kambi (or any sharp book with both sides) as the fair benchmark
+        // If no book has both sides, fall back to median with vig reduction
         oneWayCount++;
 
         const propsWithOdds = group.props.filter(
@@ -927,30 +936,70 @@ export default function FootballEVScraping() {
         );
         if (propsWithOdds.length < MIN_BOOKMAKERS) continue;
 
-        // Calculate implied probability for each bookmaker
+        // IMPROVED: Check if any book has both over AND under (Kambi often does)
+        // Prioritize Kambi, then Pinnacle, then any book with both sides
+        const sharpBookPriority = ["Kambi", "Pinnacle"];
+        const propsWithBothSides = group.props.filter(
+          (p) => p.overOdds && !isNaN(p.overOdds) && p.underOdds && !isNaN(p.underOdds)
+        );
+
+        let fairProb, fairOdds, usedSharpBook = null;
+
+        // Try to find a sharp book with both sides for de-vigging
+        let sharpProp = null;
+        for (const sharpBook of sharpBookPriority) {
+          sharpProp = propsWithBothSides.find(p => p.bookmaker === sharpBook);
+          if (sharpProp) {
+            usedSharpBook = sharpBook;
+            break;
+          }
+        }
+        // Fallback to any book with both sides
+        if (!sharpProp && propsWithBothSides.length > 0) {
+          sharpProp = propsWithBothSides[0];
+          usedSharpBook = sharpProp.bookmaker;
+        }
+
+        if (sharpProp) {
+          // USE SHARP BOOK'S DE-VIGGED ODDS as fair value
+          const devigged = devig(sharpProp.overOdds, sharpProp.underOdds, method);
+          fairProb = devigged.fairProbOver;
+          fairOdds = 1 / fairProb;
+        } else {
+          // FALLBACK: No book has both sides, use median with vig reduction
+          const impliedProbs = propsWithOdds
+            .map((p) => ({
+              bookmaker: p.bookmaker,
+              odds: p.overOdds,
+              impliedProb: 1 / p.overOdds,
+              line: p.line,
+            }))
+            .sort((a, b) => a.odds - b.odds);
+
+          const midIdx = Math.floor(impliedProbs.length / 2);
+          const medianImpliedProb =
+            impliedProbs.length % 2 === 0
+              ? (impliedProbs[midIdx - 1].impliedProb +
+                  impliedProbs[midIdx].impliedProb) /
+                2
+              : impliedProbs[midIdx].impliedProb;
+
+          // Goalscorer markets typically have 10-15% total vig, so reduce by ~8%
+          const estimatedVigReduction = 0.08;
+          fairProb = medianImpliedProb * (1 - estimatedVigReduction);
+          fairOdds = 1 / fairProb;
+        }
+
+        // Calculate implied probability for display
         const impliedProbs = propsWithOdds
           .map((p) => ({
             bookmaker: p.bookmaker,
             odds: p.overOdds,
             impliedProb: 1 / p.overOdds,
             line: p.line,
+            hasUnder: p.underOdds && !isNaN(p.underOdds),
           }))
-          .sort((a, b) => a.odds - b.odds); // Sort by odds (low to high)
-
-        // Use MEDIAN implied probability as baseline (robust to outliers)
-        // Then reduce by estimated vig (~5-10% for goalscorer markets)
-        const midIdx = Math.floor(impliedProbs.length / 2);
-        const medianImpliedProb =
-          impliedProbs.length % 2 === 0
-            ? (impliedProbs[midIdx - 1].impliedProb +
-                impliedProbs[midIdx].impliedProb) /
-              2
-            : impliedProbs[midIdx].impliedProb;
-
-        // Goalscorer markets typically have 10-15% total vig, so reduce by ~8%
-        const estimatedVigReduction = 0.08;
-        const fairProb = medianImpliedProb * (1 - estimatedVigReduction);
-        const fairOdds = 1 / fairProb;
+          .sort((a, b) => a.odds - b.odds);
 
         // Also track the best available odds for reference
         const bestOdds = Math.max(...propsWithOdds.map((p) => p.overOdds));
@@ -973,12 +1022,14 @@ export default function FootballEVScraping() {
             evPercent,
             updatedAt: prop.updatedAt,
             bookmakerCount: propsWithOdds.length,
+            sharpBook: usedSharpBook, // Which book was used for fair value (null = median)
             allOdds: impliedProbs.map((ip) => ({
               bookmaker: ip.bookmaker,
               odds: ip.odds,
               line: ip.line,
               fairProb: ip.impliedProb,
               vig: 0,
+              hasUnder: ip.hasUnder, // Show which books have both sides
             })),
             playableOdds: impliedProbs.map((ip) => ({
               bookmaker: ip.bookmaker,
