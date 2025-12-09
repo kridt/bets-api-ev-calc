@@ -2,7 +2,7 @@
 
 // API key should be set in environment variables
 const API_KEY = import.meta.env.VITE_ODDS_API_KEY || process.env.ODDS_API_KEY;
-const BASE_URL = 'https://api.odds-api.io/v3';
+const BASE_URL = 'https://api2.odds-api.io/v3';
 
 // Warn if API key is not set
 if (!API_KEY) {

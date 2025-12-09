@@ -1,0 +1,224 @@
+/* InlinePlayerStats.css - Compact inline player stats for EV cards */
+
+.inline-player-stats {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Stats Button */
+.inline-stats-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 8px;
+  color: #60a5fa;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.inline-stats-button:hover {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.6);
+}
+
+.inline-stats-button svg {
+  opacity: 0.8;
+}
+
+/* Loading State */
+.inline-stats-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+}
+
+.inline-stats-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #4ade80;
+  border-radius: 50%;
+  animation: inline-spin 0.8s linear infinite;
+}
+
+@keyframes inline-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error State */
+.inline-stats-error {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Stats Row */
+.inline-stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Individual Stat Box */
+.inline-stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  min-width: 55px;
+}
+
+.inline-stat-box.last10 {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.inline-stat-box.highlight {
+  background: rgba(74, 222, 128, 0.15);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.inline-stat-label {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.inline-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.inline-stat-sublabel {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Toggle Button */
+.inline-stats-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background 0.2s;
+}
+
+.inline-stats-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Expanded Section */
+.inline-stats-expanded {
+  margin-top: 10px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.inline-matches-header {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.inline-matches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inline-match {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.inline-match.played {
+  border-left: 2px solid #4ade80;
+}
+
+.inline-match.not-played {
+  border-left: 2px solid #ef4444;
+  opacity: 0.6;
+}
+
+.match-date {
+  color: rgba(255, 255, 255, 0.5);
+  min-width: 45px;
+}
+
+.match-fixture {
+  color: rgba(255, 255, 255, 0.8);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-player-info {
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  gap: 4px;
+}
+
+.stat-goal {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.stat-assist {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.stat-shot {
+  color: #fbbf24;
+}
+
+.match-dnp {
+  color: #ef4444;
+  font-size: 10px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .inline-stats-row {
+    gap: 6px;
+  }
+
+  .inline-stat-box {
+    padding: 4px 8px;
+    min-width: 48px;
+  }
+
+  .inline-stat-value {
+    font-size: 13px;
+  }
+
+  .inline-match {
+    font-size: 10px;
+  }
+}

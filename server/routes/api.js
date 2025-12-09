@@ -22,6 +22,14 @@ try {
   console.warn('[API] EV bet finder service not loaded:', error.message);
 }
 
+// Import balldontlie NBA service
+let balldontlieService;
+try {
+  balldontlieService = require('../services/balldontlieService');
+} catch (error) {
+  console.warn('[API] Balldontlie NBA service not loaded:', error.message);
+}
+
 /**
  * GET /api/value-bets
  * Get current active value bets
@@ -339,7 +347,7 @@ router.get('/matches', async (req, res) => {
 
       for (const leagueConfig of leagues) {
         try {
-          const url = `https://api.odds-api.io/v3/events?apiKey=${apiKey}&sport=football&league=${leagueConfig.slug}&status=pending&limit=${limit}`;
+          const url = `https://api2.odds-api.io/v3/events?apiKey=${apiKey}&sport=football&league=${leagueConfig.slug}&status=pending&limit=${limit}`;
           const response = await axios.get(url);
 
           const matches = (response.data || []).map(event => ({
@@ -363,7 +371,7 @@ router.get('/matches', async (req, res) => {
 
     } else {
       // Fetch from specific league
-      const url = `https://api.odds-api.io/v3/events?apiKey=${apiKey}&sport=football&league=${league}&status=pending&limit=${limit}`;
+      const url = `https://api2.odds-api.io/v3/events?apiKey=${apiKey}&sport=football&league=${league}&status=pending&limit=${limit}`;
       const response = await axios.get(url);
       allMatches = response.data || [];
     }
@@ -698,6 +706,306 @@ router.post('/ev-bets/refresh', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('[API] Error refreshing EV bets:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ============================================
+// NBA PLAYER PROPS API (Balldontlie)
+// ============================================
+
+/**
+ * GET /api/nba/stat-types
+ * Get available stat types for player props
+ */
+router.get('/nba/stat-types', (req, res) => {
+  if (!balldontlieService) {
+    return res.status(503).json({
+      success: false,
+      error: 'NBA service not available'
+    });
+  }
+
+  res.json({
+    success: true,
+    data: balldontlieService.getStatTypes()
+  });
+});
+
+/**
+ * GET /api/nba/player/search
+ * Search for a player by name
+ * Query params: name (required)
+ */
+router.get('/nba/player/search', async (req, res) => {
+  if (!balldontlieService) {
+    return res.status(503).json({
+      success: false,
+      error: 'NBA service not available'
+    });
+  }
+
+  try {
+    const { name } = req.query;
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Player name is required'
+      });
+    }
+
+    const players = await balldontlieService.searchPlayer(name);
+    res.json({
+      success: true,
+      count: players.length,
+      data: players
+    });
+  } catch (error) {
+    console.error('[API] Error searching player:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/nba/player/stats
+ * Get player's last N games stats
+ * Query params: name (required), games (default 10)
+ */
+router.get('/nba/player/stats', async (req, res) => {
+  if (!balldontlieService) {
+    return res.status(503).json({
+      success: false,
+      error: 'NBA service not available'
+    });
+  }
+
+  try {
+    const { name, games = 10 } = req.query;
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Player name is required'
+      });
+    }
+
+    const stats = await balldontlieService.getLastNGamesStats(name, parseInt(games));
+    res.json({
+      success: true,
+      ...stats
+    });
+  } catch (error) {
+    console.error('[API] Error fetching player stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/nba/player/season
+ * Get player's season stats
+ * Query params: name (required), season (optional, e.g., 2024)
+ */
+router.get('/nba/player/season', async (req, res) => {
+  if (!balldontlieService) {
+    return res.status(503).json({
+      success: false,
+      error: 'NBA service not available'
+    });
+  }
+
+  try {
+    const { name, season } = req.query;
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Player name is required'
+      });
+    }
+
+    const stats = await balldontlieService.getSeasonStats(name, season ? parseInt(season) : null);
+    res.json({
+      success: true,
+      ...stats
+    });
+  } catch (error) {
+    console.error('[API] Error fetching season stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/nba/hit-rate
+ * Calculate hit rate for a player prop
+ * "How many times has player gone over X in last N games?"
+ * Query params: name (required), stat (required), line (required), games (default 10)
+ */
+router.get('/nba/hit-rate', async (req, res) => {
+  if (!balldontlieService) {
+    return res.status(503).json({
+      success: false,
+      error: 'NBA service not available'
+    });
+  }
+
+  try {
+    const { name, stat, line, games = 10 } = req.query;
+
+    if (!name || !stat || line === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Required params: name, stat, line'
+      });
+    }
+
+    const result = await balldontlieService.calculateHitRate(
+      name,
+      stat,
+      parseFloat(line),
+      parseInt(games)
+    );
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('[API] Error calculating hit rate:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/nba/season-hit-rate
+ * Calculate season hit rate for a player prop
+ * Query params: name (required), stat (required), line (required), season (optional)
+ */
+router.get('/nba/season-hit-rate', async (req, res) => {
+  if (!balldontlieService) {
+    return res.status(503).json({
+      success: false,
+      error: 'NBA service not available'
+    });
+  }
+
+  try {
+    const { name, stat, line, season } = req.query;
+
+    if (!name || !stat || line === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Required params: name, stat, line'
+      });
+    }
+
+    const result = await balldontlieService.calculateSeasonHitRate(
+      name,
+      stat,
+      parseFloat(line),
+      season ? parseInt(season) : null
+    );
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('[API] Error calculating season hit rate:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/nba/analyze-prop
+ * Full prop analysis with EV calculation
+ * Query params: name (required), stat (required), line (required), odds (required), games (default 15)
+ * Example: /api/nba/analyze-prop?name=LeBron James&stat=points&line=25.5&odds=-110&games=15
+ */
+router.get('/nba/analyze-prop', async (req, res) => {
+  if (!balldontlieService) {
+    return res.status(503).json({
+      success: false,
+      error: 'NBA service not available'
+    });
+  }
+
+  try {
+    const { name, stat, line, odds, games = 15 } = req.query;
+
+    if (!name || !stat || line === undefined || odds === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Required params: name, stat, line, odds'
+      });
+    }
+
+    const result = await balldontlieService.analyzePlayerProp(
+      name,
+      stat,
+      parseFloat(line),
+      odds,
+      parseInt(games)
+    );
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('[API] Error analyzing prop:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/nba/calculate-ev
+ * Calculate EV given probability and book odds
+ * Body: { probability, bookOdds }
+ */
+router.post('/nba/calculate-ev', (req, res) => {
+  if (!balldontlieService) {
+    return res.status(503).json({
+      success: false,
+      error: 'NBA service not available'
+    });
+  }
+
+  try {
+    const { probability, bookOdds } = req.body;
+
+    if (probability === undefined || bookOdds === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Required: probability (0-1), bookOdds (American format)'
+      });
+    }
+
+    const ev = balldontlieService.calculateEV(parseFloat(probability), bookOdds);
+    res.json({
+      success: true,
+      ...ev
+    });
+  } catch (error) {
+    console.error('[API] Error calculating EV:', error);
     res.status(500).json({
       success: false,
       error: error.message

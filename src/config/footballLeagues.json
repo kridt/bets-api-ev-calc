@@ -1,0 +1,148 @@
+{
+  "leagues": [
+    {
+      "name": "England - Premier League",
+      "slug": "england-premier-league",
+      "category": "top5",
+      "enabled": true
+    },
+    {
+      "name": "England - Championship",
+      "slug": "england-championship",
+      "category": "top5",
+      "enabled": true
+    },
+    {
+      "name": "England - FA Cup",
+      "slug": "england-fa-cup",
+      "category": "cup",
+      "enabled": true
+    },
+    {
+      "name": "Spain - LaLiga",
+      "slug": "spain-laliga",
+      "category": "top5",
+      "enabled": true
+    },
+    {
+      "name": "Spain - LaLiga 2",
+      "slug": "spain-laliga-2",
+      "category": "top5",
+      "enabled": true
+    },
+    {
+      "name": "Germany - Bundesliga",
+      "slug": "germany-bundesliga",
+      "category": "top5",
+      "enabled": true
+    },
+    {
+      "name": "Germany - 2. Bundesliga",
+      "slug": "germany-2-bundesliga",
+      "category": "top5",
+      "enabled": true
+    },
+    {
+      "name": "Italy - Serie A",
+      "slug": "italy-serie-a",
+      "category": "top5",
+      "enabled": true
+    },
+    {
+      "name": "Italy - Serie B",
+      "slug": "italy-serie-b",
+      "category": "top5",
+      "enabled": true
+    },
+    {
+      "name": "France - Ligue 1",
+      "slug": "france-ligue-1",
+      "category": "top5",
+      "enabled": true
+    },
+    {
+      "name": "France - Ligue 2",
+      "slug": "france-ligue-2",
+      "category": "top5",
+      "enabled": true
+    },
+    {
+      "name": "Netherlands - Eredivisie",
+      "slug": "netherlands-eredivisie",
+      "category": "europe",
+      "enabled": true
+    },
+    {
+      "name": "Portugal - Liga Portugal",
+      "slug": "portugal-liga-portugal",
+      "category": "europe",
+      "enabled": true
+    },
+    {
+      "name": "Belgium - Pro League",
+      "slug": "belgium-pro-league",
+      "category": "europe",
+      "enabled": true
+    },
+    {
+      "name": "UEFA Champions League",
+      "slug": "international-clubs-uefa-champions-league",
+      "category": "uefa",
+      "enabled": true
+    },
+    {
+      "name": "UEFA Europa League",
+      "slug": "international-clubs-uefa-europa-league",
+      "category": "uefa",
+      "enabled": true
+    },
+    {
+      "name": "UEFA Conference League",
+      "slug": "international-clubs-uefa-conference-league",
+      "category": "uefa",
+      "enabled": true
+    },
+    {
+      "name": "Scotland - Premiership",
+      "slug": "scotland-premiership",
+      "category": "europe",
+      "enabled": true
+    },
+    {
+      "name": "Denmark - Superliga",
+      "slug": "denmark-superliga",
+      "category": "europe",
+      "enabled": true
+    },
+    {
+      "name": "Austria - Bundesliga",
+      "slug": "austria-bundesliga",
+      "category": "europe",
+      "enabled": true
+    },
+    {
+      "name": "Greece - Super League",
+      "slug": "greece-super-league",
+      "category": "europe",
+      "enabled": true
+    },
+    {
+      "name": "Saudi Arabia - Saudi Pro League",
+      "slug": "saudi-arabia-saudi-pro-league",
+      "category": "other",
+      "enabled": true
+    },
+    {
+      "name": "Brazil - Brasileiro Serie A",
+      "slug": "brazil-brasileiro-serie-a",
+      "category": "other",
+      "enabled": true
+    },
+    {
+      "name": "Argentina - Liga Profesional",
+      "slug": "argentina-liga-profesional",
+      "category": "other",
+      "enabled": true
+    }
+  ]
+}

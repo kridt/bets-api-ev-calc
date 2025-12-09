@@ -8,7 +8,7 @@ const footballPredictionService = require('./footballPredictionService');
 
 // Odds API configuration
 const ODDS_API_KEY = process.env.ODDS_API_KEY || process.env.VITE_ODDS_API_KEY;
-const ODDS_API_BASE = 'https://api.odds-api.io/v3';
+const ODDS_API_BASE = 'https://api2.odds-api.io/v3';
 
 // User's bookmakers (Danish market)
 const USER_BOOKMAKERS = [

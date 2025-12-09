@@ -1,15 +1,21 @@
 // src/pages/NBAEVScraping.jsx
 // NBA EV Scraping - Fetches NBA matches and compares player props across bookmakers
+// Now with real-time WebSocket updates!
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSocket } from '../hooks/useSocket';
+import ConnectionStatus from '../components/ConnectionStatus';
 
 const ODDS_API_KEY = '811e5fb0efa75d2b92e800cb55b60b30f62af8c21da06c4b2952eb516bee0a2e';
 const ODDS_API_BASE = 'https://api2.odds-api.io/v3';
 
+// Cache server URL - reduces API calls by serving cached odds
+const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
+
 // ALL bookmakers for fetching and average calculation (includes sharp books)
 const ALL_BOOKMAKERS = [
   'Kambi', 'Bet365', 'DraftKings', 'Pinnacle', 'BetMGM', 'Caesars', 'PrizePicks', 'FanDuel',
-  'BetOnline.ag', 'BetPARX', 'BetRivers', 'Bovada', 'Fanatics', 'Fliff', 'Sporttrade',
+  'BetOnline.ag', 'BetPARX', 'BetRivers', 'Bovada', 'Fanatics', 'Fliff',
   'Superbet', 'Underdog', 'Bally Bet'
 ];
 
@@ -284,14 +290,34 @@ const saveToStorage = (key, value) => {
 };
 
 export default function NBAEVScraping() {
+  // WebSocket connection for real-time updates
+  const {
+    connected,
+    status: socketStatus,
+    lastUpdate: socketLastUpdate,
+    isRefreshing: socketRefreshing,
+    connectedClients,
+    nbaData,
+    soundEnabled,
+    notificationsEnabled,
+    autoReanalyze,
+    toggleSound,
+    toggleNotifications,
+    toggleAutoReanalyze,
+    registerOnDataUpdate,
+    addHighEvAlert,
+    requestRefresh,
+  } = useSocket('nba');
+
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [cacheStatus, setCacheStatus] = useState(null);
   // Store opportunities and all props per match: { matchId: { opportunities: [], allProps: [], analyzed: bool } }
   const [matchData, setMatchData] = useState({});
-  const [progress, setProgress] = useState({ current: 0, total: 0, status: '', matchIndex: 0, totalMatches: 0 });
+  const [progress, setProgress] = useState({ current: 0, total: 0, status: '', matchIndex: 0, totalMatches: 0, source: '' });
 
   // Tracked bets for stat tracking: array of bet objects with tracking metadata
   const [trackedBets, setTrackedBets] = useState(() => loadFromStorage(TRACKED_BETS_KEY, []));
@@ -719,19 +745,64 @@ export default function NBAEVScraping() {
     return props;
   };
 
+  // Fetch cache server status
+  const fetchCacheStatus = async () => {
+    try {
+      const response = await fetch(`${CACHE_SERVER_URL}/api/status`, {
+        signal: AbortSignal.timeout(3000)
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCacheStatus(data);
+        return data;
+      }
+    } catch (err) {
+      console.log('[Cache] Could not fetch status');
+    }
+    return null;
+  };
+
+  // Try to fetch cached odds from the server
+  const fetchCachedOdds = async (eventId) => {
+    try {
+      const response = await fetch(`${CACHE_SERVER_URL}/api/nba/odds/${eventId}`, {
+        signal: AbortSignal.timeout(3000) // 3 second timeout
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.bookmakers) {
+          console.log(`[Cache] Got cached odds for event ${eventId}`);
+          return data;
+        }
+      }
+    } catch (err) {
+      // Cache miss or timeout - fall back to direct API
+      console.log(`[Cache] Miss for event ${eventId}, using direct API`);
+    }
+    return null;
+  };
+
   // Fetch odds for a single bookmaker
   // Returns { props: [...], updatedAt: "ISO timestamp" }
-  const fetchBookmakerOdds = async (eventId, bookmaker) => {
+  const fetchBookmakerOdds = async (eventId, bookmaker, cachedData = null) => {
     try {
-      const url = `${ODDS_API_BASE}/odds?apiKey=${ODDS_API_KEY}&eventId=${eventId}&bookmakers=${bookmaker}`;
-      const response = await fetch(url);
+      let data;
 
-      if (!response.ok) {
-        console.warn(`[${bookmaker}] API error:`, response.status);
-        return { props: [], updatedAt: null };
+      // Use cached data if available, otherwise fetch from API
+      if (cachedData && cachedData.bookmakers && cachedData.bookmakers[bookmaker]) {
+        data = { bookmakers: { [bookmaker]: cachedData.bookmakers[bookmaker] } };
+        console.log(`[${bookmaker}] Using cached data`);
+      } else {
+        const url = `${ODDS_API_BASE}/odds?apiKey=${ODDS_API_KEY}&eventId=${eventId}&bookmakers=${bookmaker}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          console.warn(`[${bookmaker}] API error:`, response.status);
+          return { props: [], updatedAt: null };
+        }
+
+        data = await response.json();
       }
-
-      const data = await response.json();
 
       // Check for bookmaker data in the new structure
       if (!data || !data.bookmakers || !data.bookmakers[bookmaker]) {
@@ -1074,17 +1145,34 @@ export default function NBAEVScraping() {
   const analyzeMatchInternal = async (match, onProgress) => {
     const allProps = [];
 
-    // Fetch from ALL bookmakers (including DraftKings/Pinnacle for avg calculation)
-    for (let i = 0; i < ALL_BOOKMAKERS.length; i++) {
-      const bookmaker = ALL_BOOKMAKERS[i];
-      if (onProgress) onProgress(i + 1, bookmaker);
+    // First, try to get cached odds for this event (saves API calls)
+    const cachedData = await fetchCachedOdds(match.id);
+    const usingCache = cachedData && cachedData.bookmakers && Object.keys(cachedData.bookmakers).length > 0;
 
-      const { props } = await fetchBookmakerOdds(match.id, bookmaker);
-      allProps.push(...props);
+    if (usingCache) {
+      const cachedBookmakers = Object.keys(cachedData.bookmakers).length;
+      console.log(`[Match ${match.id}] USING CACHE with ${cachedBookmakers} bookmakers`);
+      // When using cache, process all bookmakers instantly
+      if (onProgress) onProgress(ALL_BOOKMAKERS.length, 'Using cached data', 'CACHE');
 
-      // Small delay between requests
-      if (i < ALL_BOOKMAKERS.length - 1) {
-        await new Promise(r => setTimeout(r, 200));
+      for (const bookmaker of ALL_BOOKMAKERS) {
+        const { props } = await fetchBookmakerOdds(match.id, bookmaker, cachedData);
+        allProps.push(...props);
+      }
+    } else {
+      console.log(`[Match ${match.id}] NO CACHE - using direct API`);
+      // No cache - fetch from API with progress animation
+      for (let i = 0; i < ALL_BOOKMAKERS.length; i++) {
+        const bookmaker = ALL_BOOKMAKERS[i];
+        if (onProgress) onProgress(i + 1, `Fetching ${bookmaker}...`, 'API');
+
+        const { props } = await fetchBookmakerOdds(match.id, bookmaker, null);
+        allProps.push(...props);
+
+        // Add delay between API requests
+        if (i < ALL_BOOKMAKERS.length - 1) {
+          await new Promise(r => setTimeout(r, 200));
+        }
       }
     }
 
@@ -1108,21 +1196,23 @@ export default function NBAEVScraping() {
       setProgress({
         current: 0,
         total: ALL_BOOKMAKERS.length,
-        status: 'Starting...',
+        status: 'Checking cache...',
         matchIndex: mIdx + 1,
         totalMatches: matchList.length,
         matchName: `${match.home} vs ${match.away}`,
+        source: '',
       });
 
       try {
-        const result = await analyzeMatchInternal(match, (bookIdx, bookName) => {
+        const result = await analyzeMatchInternal(match, (bookIdx, statusText, source) => {
           setProgress({
             current: bookIdx,
             total: ALL_BOOKMAKERS.length,
-            status: `Fetching ${bookName}...`,
+            status: statusText,
             matchIndex: mIdx + 1,
             totalMatches: matchList.length,
             matchName: `${match.home} vs ${match.away}`,
+            source: source || '',
           });
         });
 
@@ -1144,7 +1234,7 @@ export default function NBAEVScraping() {
       }
     }
 
-    setProgress({ current: 0, total: 0, status: '', matchIndex: 0, totalMatches: 0 });
+    setProgress({ current: 0, total: 0, status: '', matchIndex: 0, totalMatches: 0, source: '' });
     setAnalyzing(false);
   };
 
@@ -1250,6 +1340,7 @@ export default function NBAEVScraping() {
 
   // Fetch all matches and auto-analyze on mount
   useEffect(() => {
+    fetchCacheStatus();
     refreshAll();
   }, []);
 
@@ -1322,12 +1413,21 @@ export default function NBAEVScraping() {
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {lastUpdated && (
-              <span style={{ color: "#64748b", fontSize: 13 }}>
-                Updated: {lastUpdated.toLocaleTimeString()}
-              </span>
-            )}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <ConnectionStatus
+              connected={connected}
+              isRefreshing={socketRefreshing || analyzing}
+              lastUpdate={socketLastUpdate || lastUpdated}
+              connectedClients={connectedClients}
+              soundEnabled={soundEnabled}
+              notificationsEnabled={notificationsEnabled}
+              autoReanalyze={autoReanalyze}
+              onToggleSound={toggleSound}
+              onToggleNotifications={toggleNotifications}
+              onToggleAutoReanalyze={toggleAutoReanalyze}
+              cacheStatus={socketStatus || cacheStatus}
+              sport="nba"
+            />
             <button
               onClick={refreshAll}
               disabled={loading || analyzing}
@@ -1638,7 +1738,22 @@ export default function NBAEVScraping() {
             }} />
             <div>
               <div style={{ color: "#e2e8f0", fontWeight: 600 }}>{progress.matchName}</div>
-              <div style={{ color: "#94a3b8", fontSize: 13 }}>{progress.status}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "#94a3b8", fontSize: 13 }}>{progress.status}</span>
+                {progress.source && (
+                  <span style={{
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    background: progress.source === 'CACHE' ? "rgba(34, 197, 94, 0.2)" : "rgba(249, 115, 22, 0.2)",
+                    color: progress.source === 'CACHE' ? "#22c55e" : "#f97316",
+                    border: `1px solid ${progress.source === 'CACHE' ? "rgba(34, 197, 94, 0.3)" : "rgba(249, 115, 22, 0.3)"}`,
+                  }}>
+                    {progress.source}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           {/* Match progress */}

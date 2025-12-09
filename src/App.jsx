@@ -3,9 +3,9 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 
 export default function App() {
   const location = useLocation();
-  const isBasketball = location.pathname.startsWith('/basketball');
-  const isHome = location.pathname === '/';
-  const isResults = location.pathname === '/results';
+  const isNbaEV = location.pathname === '/';
+  const isFootballEV = location.pathname === '/football-ev';
+  const isDashboard = location.pathname === '/dashboard';
 
   return (
     <div
@@ -71,7 +71,7 @@ export default function App() {
                 fontWeight: 900,
                 boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
               }}>
-                {isBasketball ? "🏀" : "⚽"}
+                {isDashboard ? "📊" : isFootballEV ? "⚽" : "🏀"}
               </div>
               <div>
                 <div style={{
@@ -81,14 +81,14 @@ export default function App() {
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                 }}>
-                  Bets Stats
+                  EV Betting
                 </div>
                 <div style={{
                   fontSize: 12,
                   color: "#64748b",
                   fontWeight: 500,
                 }}>
-                  {isBasketball ? "NBA Player Props" : "EPL Match & Player Props"}
+                  {isDashboard ? "P&L Dashboard" : isFootballEV ? "Football EV Calculator" : "NBA EV Calculator"}
                 </div>
               </div>
             </Link>
@@ -103,45 +103,45 @@ export default function App() {
                   textDecoration: "none",
                   fontWeight: 600,
                   fontSize: 14,
-                  background: isHome ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : "rgba(100, 116, 139, 0.2)",
-                  color: isHome ? "#fff" : "#94a3b8",
-                  border: `1px solid ${isHome ? "rgba(16, 185, 129, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
+                  background: isNbaEV ? "linear-gradient(135deg, #f97316 0%, #ea580c 100%)" : "rgba(100, 116, 139, 0.2)",
+                  color: isNbaEV ? "#fff" : "#94a3b8",
+                  border: `1px solid ${isNbaEV ? "rgba(249, 115, 22, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
                   transition: "all 0.3s",
                 }}
               >
-                ⚽ EPL Value Bets
+                🏀 NBA EV
               </Link>
               <Link
-                to="/basketball"
+                to="/football-ev"
                 style={{
                   padding: "10px 20px",
                   borderRadius: 12,
                   textDecoration: "none",
                   fontWeight: 600,
                   fontSize: 14,
-                  background: isBasketball ? "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" : "rgba(100, 116, 139, 0.2)",
-                  color: isBasketball ? "#fff" : "#94a3b8",
-                  border: `1px solid ${isBasketball ? "rgba(245, 158, 11, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
+                  background: isFootballEV ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : "rgba(100, 116, 139, 0.2)",
+                  color: isFootballEV ? "#fff" : "#94a3b8",
+                  border: `1px solid ${isFootballEV ? "rgba(16, 185, 129, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
                   transition: "all 0.3s",
                 }}
               >
-                🏀 NBA Props
+                ⚽ Football EV
               </Link>
               <Link
-                to="/results"
+                to="/dashboard"
                 style={{
                   padding: "10px 20px",
                   borderRadius: 12,
                   textDecoration: "none",
                   fontWeight: 600,
                   fontSize: 14,
-                  background: isResults ? "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)" : "rgba(100, 116, 139, 0.2)",
-                  color: isResults ? "#fff" : "#94a3b8",
-                  border: `1px solid ${isResults ? "rgba(139, 92, 246, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
+                  background: isDashboard ? "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)" : "rgba(100, 116, 139, 0.2)",
+                  color: isDashboard ? "#fff" : "#94a3b8",
+                  border: `1px solid ${isDashboard ? "rgba(139, 92, 246, 0.5)" : "rgba(100, 116, 139, 0.3)"}`,
                   transition: "all 0.3s",
                 }}
               >
-                📊 Results
+                📊 Dashboard
               </Link>
             </nav>
           </div>
@@ -162,7 +162,7 @@ export default function App() {
           borderTop: "1px solid rgba(255, 255, 255, 0.05)",
         }}>
           <p style={{ margin: 0 }}>
-            EPL data by balldontlie.io • NBA data by balldontlie.io • Real-time probability calculations
+            Odds data by The Odds API
           </p>
         </footer>
       </div>

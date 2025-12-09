@@ -3,9 +3,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import App from "./App.jsx";
-import Basketball from "./pages/Basketball.jsx";
-import Results from "./pages/Results.jsx";
-import EPLValueBets from "./pages/EPLValueBets.jsx";
+import NBAEVScraping from "./pages/NBAEVScraping.jsx";
+import FootballEVScraping from "./pages/FootballEVScraping.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
 import "./index.css";
 
 const router = createBrowserRouter(
@@ -14,9 +14,9 @@ const router = createBrowserRouter(
       path: "/",
       element: <App />,
       children: [
-        { index: true, element: <EPLValueBets /> },
-        { path: "basketball", element: <Basketball /> },
-        { path: "results", element: <Results /> },
+        { index: true, element: <NBAEVScraping /> },
+        { path: "football-ev", element: <FootballEVScraping /> },
+        { path: "dashboard", element: <Dashboard /> },
       ],
     },
   ],

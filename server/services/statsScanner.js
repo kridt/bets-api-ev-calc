@@ -47,7 +47,7 @@ function calculatePoissonProbability(homeAvg, awayAvg, line, selection) {
 async function fetchLeagueMatches(league) {
   try {
     const apiKey = process.env.ODDS_API_KEY;
-    const url = `https://api.odds-api.io/v3/events?apiKey=${apiKey}&sport=football&league=${league.slug}&status=pending&limit=50`;
+    const url = `https://api2.odds-api.io/v3/events?apiKey=${apiKey}&sport=football&league=${league.slug}&status=pending&limit=50`;
     const response = await axios.get(url);
 
     const allMatches = response.data || [];

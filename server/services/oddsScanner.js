@@ -13,7 +13,7 @@ const axios = require('axios');
 async function fetchOdds(matchId) {
   try {
     // Using odds-api.io (replace with your actual odds API)
-    const response = await axios.get(`https://api.odds-api.io/v1/odds`, {
+    const response = await axios.get(`https://api2.odds-api.io/v1/odds`, {
       params: {
         apiKey: process.env.ODDS_API_KEY || 'your-odds-api-key',
         sport: 'soccer_epl',
