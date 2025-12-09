@@ -8,6 +8,7 @@ import InlinePlayerStats from "../components/InlinePlayerStats";
 import { useSocket } from '../hooks/useSocket';
 import ConnectionStatus from '../components/ConnectionStatus';
 import { BetTracker } from '../services/betTracker';
+import { HelpTooltip } from '../components/Tooltip';
 
 const ODDS_API_KEY =
   "811e5fb0efa75d2b92e800cb55b60b30f62af8c21da06c4b2952eb516bee0a2e";
@@ -1754,8 +1755,9 @@ export default function FootballEVScraping() {
               border: "1px solid rgba(255, 255, 255, 0.08)",
             }}
           >
-            <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>
+            <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center" }}>
               Show EV from:
+              <HelpTooltip text="Bookmakers you can actually bet on. We compare their odds to calculate your edge." />
             </span>
             {PLAYABLE_BOOKMAKERS.map((bookmaker) => (
               <label
@@ -1817,8 +1819,9 @@ export default function FootballEVScraping() {
               flexWrap: "wrap",
             }}
           >
-            <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>
+            <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center" }}>
               Markets:
+              <HelpTooltip text="Types of bets to analyze. Player props (shots, goals) and match markets (corners, cards)." />
             </span>
             {AVAILABLE_MARKETS.map((market) => (
               <label
@@ -1883,8 +1886,9 @@ export default function FootballEVScraping() {
               flexWrap: "wrap",
             }}
           >
-            <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>
+            <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center" }}>
               De-vig Method:
+              <HelpTooltip text="How we remove the bookmaker's profit margin to find the 'true' fair odds. Multiplicative is most common. Hover each method for details." />
             </span>
             {Object.values(DEVIG_METHODS).map((method) => (
               <label
@@ -1952,9 +1956,12 @@ export default function FootballEVScraping() {
                 fontSize: 13,
                 fontWeight: 600,
                 minWidth: 100,
+                display: "flex",
+                alignItems: "center",
               }}
             >
               Min EV%:
+              <HelpTooltip text="Expected Value - your long-term profit edge. 5% EV means you profit $5 per $100 bet on average. Higher = safer but fewer bets." />
             </span>
             <input
               type="range"
@@ -2008,9 +2015,12 @@ export default function FootballEVScraping() {
                 fontSize: 13,
                 fontWeight: 600,
                 minWidth: 100,
+                display: "flex",
+                alignItems: "center",
               }}
             >
               Max Odds:
+              <HelpTooltip text="Filter out longshots. Odds of 3.0 = 33% win chance. Lower odds = more likely to win but smaller payouts." />
             </span>
             <input
               type="range"
@@ -2209,9 +2219,12 @@ export default function FootballEVScraping() {
                           fontWeight: 700,
                           color: "#22c55e",
                           marginBottom: 12,
+                          display: "flex",
+                          alignItems: "center",
                         }}
                       >
                         +EV Opportunities ({minEVFilter}%+ edge)
+                        <HelpTooltip text="Bets where the offered odds are higher than the fair odds. These have positive Expected Value - profitable in the long run!" position="right" />
                       </div>
                       <div
                         style={{
@@ -2316,8 +2329,11 @@ export default function FootballEVScraping() {
                                 gap: 8,
                               }}
                             >
-                              <div style={{ fontSize: 13 }}>
-                                <span style={{ color: "#64748b" }}>Bet: </span>
+                              <div style={{ fontSize: 13, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
+                                <span style={{ color: "#64748b", display: "flex", alignItems: "center" }}>
+                                  Bet:
+                                  <HelpTooltip text="The odds you can get at this bookmaker. Higher odds = bigger potential payout." position="bottom" />
+                                </span>
                                 <span
                                   style={{ color: "#22c55e", fontWeight: 700 }}
                                 >
@@ -2328,9 +2344,10 @@ export default function FootballEVScraping() {
                                   @ {ev.bookmaker}
                                 </span>
                                 <span
-                                  style={{ color: "#64748b", marginLeft: 12 }}
+                                  style={{ color: "#64748b", marginLeft: 12, display: "flex", alignItems: "center" }}
                                 >
-                                  Fair:{" "}
+                                  Fair:
+                                  <HelpTooltip text="The 'true' odds after removing bookmaker profit. If Bet odds > Fair odds, you have an edge!" position="bottom" />
                                 </span>
                                 <span
                                   style={{ color: "#a5b4fc", fontWeight: 600 }}
@@ -2356,9 +2373,12 @@ export default function FootballEVScraping() {
                                   color: "#64748b",
                                   marginRight: 6,
                                   fontWeight: 500,
+                                  display: "flex",
+                                  alignItems: "center",
                                 }}
                               >
                                 Sharp:
+                                <HelpTooltip text="Odds from professional bookmakers (Pinnacle, Kambi). These are used to calculate fair value." position="bottom" />
                               </span>
                               {(() => {
                                 // Deduplicate by bookmaker - keep closest line to bet line
