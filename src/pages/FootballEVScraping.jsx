@@ -230,10 +230,31 @@ const getPlayerMarkets = () =>
 const getMatchMarkets = () =>
   AVAILABLE_MARKETS.filter((m) => m.category === "match").map((m) => m.key);
 
-// Line tolerance for matching
-const LINE_TOLERANCE = 0.5;
+// Line tolerance for matching (tighter now since we normalize)
+const LINE_TOLERANCE = 0.25;
 // Minimum EV percentage to show (3%+ for higher confidence)
 const MIN_EV_PERCENT = 3;
+
+// Normalize lines to .5 increments for consistent matching
+// Over 10 and Over 10.5 are nearly equivalent (10 pushes vs loses)
+// By normalizing, we can properly group and compare across bookmakers
+const normalizeLine = (line) => {
+  // If line is a whole number (10, 11, etc.), convert to .5 (10.5, 11.5)
+  // If line is already .5 or .25/.75, keep as is
+  const decimal = line % 1;
+  if (decimal === 0) {
+    // Whole number like 10 → 10.5
+    return line + 0.5;
+  } else if (Math.abs(decimal - 0.5) < 0.01 || Math.abs(decimal + 0.5) < 0.01) {
+    // Already .5 like 10.5 → keep as 10.5
+    return line;
+  } else if (Math.abs(decimal - 0.25) < 0.01 || Math.abs(decimal - 0.75) < 0.01) {
+    // Asian lines like 10.25 or 10.75 → keep as is
+    return line;
+  }
+  // Default: round to nearest .5
+  return Math.round(line * 2) / 2;
+};
 // Minimum bookmakers with complete odds for calculation
 // Note: Only 2 bookmakers (Bet365, Kambi) have football player props
 const MIN_BOOKMAKERS = 2;
@@ -609,7 +630,9 @@ export default function FootballEVScraping() {
           playerName = playerName.replace(/\s*\([^)]*\)\s*/g, " ").trim();
           if (!playerName) continue;
 
-          const line = parseFloat(item.hdp) || 0.5;
+          const rawLine = parseFloat(item.hdp) || 0.5;
+          // Normalize line (1 → 1.5) for consistent matching across bookmakers
+          const line = normalizeLine(rawLine);
           const overOdds = parseFloat(item.over);
           const underOdds =
             item.under && item.under !== "N/A" && item.under !== "NaN"
@@ -625,6 +648,7 @@ export default function FootballEVScraping() {
             marketType,
             category,
             line,
+            rawLine, // Keep original for display
             overOdds,
             underOdds,
             bookmaker,
@@ -633,8 +657,11 @@ export default function FootballEVScraping() {
         }
         // TOTALS MARKETS - have 'over' and 'under' fields
         else if (marketType === "totals") {
-          const line = parseFloat(item.hdp);
-          if (isNaN(line)) continue;
+          const rawLine = parseFloat(item.hdp);
+          if (isNaN(rawLine)) continue;
+
+          // Normalize line (10 → 10.5) for consistent matching
+          const line = normalizeLine(rawLine);
 
           const overOdds = parseFloat(item.over);
           const underOdds =
@@ -651,6 +678,7 @@ export default function FootballEVScraping() {
             marketType,
             category,
             line,
+            rawLine, // Keep original for display
             overOdds,
             underOdds,
             bookmaker,
@@ -659,8 +687,11 @@ export default function FootballEVScraping() {
         }
         // SPREAD MARKETS - have 'home' and 'away' fields
         else if (marketType === "spread") {
-          const line = parseFloat(item.hdp);
-          if (isNaN(line)) continue;
+          const rawLine = parseFloat(item.hdp);
+          if (isNaN(rawLine)) continue;
+
+          // Normalize line for consistent matching
+          const line = normalizeLine(rawLine);
 
           const homeOdds = parseFloat(item.home);
           const awayOdds = parseFloat(item.away);
@@ -675,6 +706,7 @@ export default function FootballEVScraping() {
             marketType,
             category,
             line,
+            rawLine, // Keep original for display
             overOdds: homeOdds, // Home team
             underOdds: awayOdds, // Away team
             bookmaker,
