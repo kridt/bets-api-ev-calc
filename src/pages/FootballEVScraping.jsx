@@ -752,10 +752,15 @@ export default function FootballEVScraping() {
 
           if (isNaN(overOdds)) continue;
 
+          // Use consistent label for grouping across bookmakers
+          // e.g., both "Match Shots on Target" (Bet365) and "Total Shots on Target" (Kambi)
+          // should group together using the label "Shots on Target"
+          const marketLabel = getMarketInfo(marketKey)?.label || market.name;
+
           props.push({
-            player: market.name, // Use market name for match markets (e.g., "Corners Totals")
+            player: marketLabel, // Use consistent label for grouping
             market: marketKey,
-            marketName: market.name,
+            marketName: market.name, // Keep original API name for reference
             marketType,
             category,
             line,
@@ -779,11 +784,14 @@ export default function FootballEVScraping() {
 
           if (isNaN(homeOdds) || isNaN(awayOdds)) continue;
 
+          // Use consistent label for grouping across bookmakers
+          const marketLabel = getMarketInfo(marketKey)?.label || market.name;
+
           // For spreads, we treat home as "over" and away as "under" for consistency
           props.push({
-            player: market.name, // Use market name for match markets (e.g., "Match Spread")
+            player: marketLabel, // Use consistent label for grouping
             market: marketKey,
-            marketName: market.name,
+            marketName: market.name, // Keep original API name for reference
             marketType,
             category,
             line,
