@@ -1209,7 +1209,7 @@ export default function FootballEVScraping() {
           continue;
         }
 
-        // De-vig each bookmaker and average
+        // De-vig each bookmaker
         const devigged = propsWithBothSides.map((p) => {
           const result = devig(p.overOdds, p.underOdds, method);
           return {
@@ -1223,12 +1223,35 @@ export default function FootballEVScraping() {
           };
         });
 
-        const avgFairProbOver =
-          devigged.reduce((sum, d) => sum + d.fairProbOver, 0) /
-          devigged.length;
-        const avgFairProbUnder =
-          devigged.reduce((sum, d) => sum + d.fairProbUnder, 0) /
-          devigged.length;
+        // Check if we have a sharp book (Pinnacle)
+        const hasPinnacle = devigged.some(d => d.bookmaker === "Pinnacle");
+
+        let avgFairProbOver, avgFairProbUnder, usedSharpBook = null;
+
+        if (hasPinnacle) {
+          // Use Pinnacle as the sharp reference
+          const pinnacleData = devigged.find(d => d.bookmaker === "Pinnacle");
+          avgFairProbOver = pinnacleData.fairProbOver;
+          avgFairProbUnder = pinnacleData.fairProbUnder;
+          usedSharpBook = "Pinnacle";
+        } else if (devigged.length === 2) {
+          // NO SHARP BOOK - Use the lowest-vig book as reference
+          // This allows finding edge between two soft books (e.g., Bet365 vs Kambi for shots)
+          const sortedByVig = [...devigged].sort((a, b) => a.vig - b.vig);
+          const lowestVigBook = sortedByVig[0];
+          avgFairProbOver = lowestVigBook.fairProbOver;
+          avgFairProbUnder = lowestVigBook.fairProbUnder;
+          usedSharpBook = lowestVigBook.bookmaker + " (lowest vig)";
+        } else {
+          // Multiple books but no Pinnacle - use average
+          avgFairProbOver =
+            devigged.reduce((sum, d) => sum + d.fairProbOver, 0) /
+            devigged.length;
+          avgFairProbUnder =
+            devigged.reduce((sum, d) => sum + d.fairProbUnder, 0) /
+            devigged.length;
+          usedSharpBook = "Average";
+        }
 
         // Check OVER bets
         for (const prop of group.props.filter(
@@ -1253,6 +1276,7 @@ export default function FootballEVScraping() {
             evPercent,
             updatedAt: prop.updatedAt,
             bookmakerCount: devigged.length,
+            sharpBook: usedSharpBook, // Which book was used for fair value
             allOdds: devigged.map((d) => ({
               bookmaker: d.bookmaker,
               odds: d.overOdds,
@@ -1301,6 +1325,7 @@ export default function FootballEVScraping() {
             evPercent,
             updatedAt: prop.updatedAt,
             bookmakerCount: devigged.length,
+            sharpBook: usedSharpBook, // Which book was used for fair value
             allOdds: devigged.map((d) => ({
               bookmaker: d.bookmaker,
               odds: d.underOdds,
