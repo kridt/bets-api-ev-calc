@@ -36,7 +36,7 @@ const ALL_BOOKMAKERS = [
   "ESPN BET",      // US book
   "Caesars",       // US book
   "DanskeSpil",    // Danish book
-  "PrizePicks",    // Props book
+  "Betano",        // European book
   "Underdog",      // Props book
   "Fliff",         // Props book
   "BetPARX",       // US book
@@ -44,7 +44,7 @@ const ALL_BOOKMAKERS = [
 ];
 
 // Bookmakers we can bet on (for display in "Show EV from" list)
-const PLAYABLE_BOOKMAKERS = ["Bet365", "Kambi", "Unibet DK", "DanskeSpil"];
+const PLAYABLE_BOOKMAKERS = ["Bet365", "Kambi", "Unibet DK", "DanskeSpil", "Betano"];
 
 // All available markets - both player props and match markets
 // marketType: 'player' (has label), 'totals' (over/under), 'spread' (home/away handicap)

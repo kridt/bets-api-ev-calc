@@ -33,13 +33,13 @@ const ALL_BOOKMAKERS = [
   'DraftKings',    // Full coverage (3 markets)
   'BetOnline.ag',  // Full coverage (3 markets)
   'Fanatics',      // Limited (3 markets)
-  'PrizePicks',    // Props book (1 market)
+  'Betano',        // European book
   'Underdog',      // Props book (1 market)
   'BetPARX',       // US book
 ];
 
 // Bookmakers we can bet on (for display in "Show EV from" list)
-const PLAYABLE_BOOKMAKERS = ['Bet365', 'Kambi', 'Unibet DK', 'DanskeSpil'];
+const PLAYABLE_BOOKMAKERS = ['Bet365', 'Kambi', 'Unibet DK', 'DanskeSpil', 'Betano'];
 
 // Stat types we want to compare (from label like "Player Name (StatType)")
 // Based on actual API responses from Pinnacle, DraftKings, FanDuel, Kambi
