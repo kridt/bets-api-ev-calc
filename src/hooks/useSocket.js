@@ -1,8 +1,13 @@
 // src/hooks/useSocket.js
 // WebSocket hook for real-time odds updates with auto-reanalyze and high EV alerts
+// NOTE: Socket connection is currently DISABLED while using OpticOdds API directly
+// Set SOCKET_DISABLED to false to re-enable odds-notifyer server connection
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
+
+// TOGGLE: Set to false to re-enable odds-notifyer socket connection
+const SOCKET_DISABLED = true;
 
 const SOCKET_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
 
@@ -204,6 +209,12 @@ export function useSocket(sport = null) {
   }, []);
 
   useEffect(() => {
+    // Skip socket connection if disabled (using OpticOdds API directly)
+    if (SOCKET_DISABLED) {
+      console.log('[Socket] Connection DISABLED - using OpticOdds API directly');
+      return;
+    }
+
     console.log(`[Socket] Connecting to ${SOCKET_URL}...`);
 
     const socket = io(SOCKET_URL, {
@@ -384,6 +395,11 @@ export function useSocket(sport = null) {
 let globalSocket = null;
 
 export function getGlobalSocket() {
+  // Return null if socket is disabled
+  if (SOCKET_DISABLED) {
+    return null;
+  }
+
   if (!globalSocket) {
     globalSocket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],

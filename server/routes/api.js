@@ -4,6 +4,9 @@ const router = express.Router();
 const { db, collections } = require('../config/firebase');
 const { getStatus } = require('../schedulers');
 
+// Import OpticOdds proxy routes
+const opticOddsRoutes = require('./opticodds');
+
 // Import football prediction services
 let footballPredictionService;
 let footballDataApi;
@@ -1012,5 +1015,10 @@ router.post('/nba/calculate-ev', (req, res) => {
     });
   }
 });
+
+// ============================================
+// OPTICODDS PROXY API
+// ============================================
+router.use('/opticodds', opticOddsRoutes);
 
 module.exports = router;

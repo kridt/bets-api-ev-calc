@@ -1,45 +1,77 @@
 // src/pages/NBAEVScraping.jsx
 // NBA EV Scraping - Fetches NBA matches and compares player props across bookmakers
 // Now with real-time WebSocket updates!
+// Updated to use OpticOdds API for odds data
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import ConnectionStatus from '../components/ConnectionStatus';
 import { BetTracker } from '../services/betTracker';
 import './NBAEV.css';
+import {
+  americanToDecimal,
+  SPORTSBOOK_MAP,
+  SPORTSBOOK_DISPLAY,
+} from '../services/opticOddsApi';
 
-const ODDS_API_KEY = '811e5fb0efa75d2b92e800cb55b60b30f62af8c21da06c4b2952eb516bee0a2e';
-const ODDS_API_BASE = 'https://api2.odds-api.io/v3';
+// OpticOdds API Configuration - Use proxy server to avoid CORS issues
+const OPTIC_API_BASE = import.meta.env.VITE_FOOTBALL_API_URL || 'http://localhost:4000';
+const OPTIC_API_PROXY = `${OPTIC_API_BASE}/api/opticodds`;
 
 // Cache server URL - reduces API calls by serving cached odds
 const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
 
-// ALL bookmakers for fetching and average calculation (includes sharp books)
-const ALL_BOOKMAKERS = [
-  'Pinnacle',      // Sharp line (10 markets)
-  'Bet365',        // Full coverage (26 markets)
-  'Kambi',         // Full coverage (3 markets)
-  'Unibet DK',     // Danish Unibet (8 markets)
-  'BetMGM',        // Full coverage (7 markets)
-  'ESPN BET',      // US book (6 markets)
-  'BetRivers',     // Full coverage (6 markets)
-  'Bally Bet',     // US book (6 markets)
-  'Fliff',         // Props book (6 markets)
-  'Caesars',       // US book (5 markets)
-  'FanDuel',       // Full coverage (4 markets)
-  'Superbet',      // Full coverage (4 markets)
-  'DanskeSpil',    // Danish book (4 markets)
-  'Bovada',        // Full coverage (4 markets)
-  'DraftKings',    // Full coverage (3 markets)
-  'BetOnline.ag',  // Full coverage (3 markets)
-  'Fanatics',      // Limited (3 markets)
-  'Betano',        // European book
-  'Underdog',      // Props book (1 market)
-  'BetPARX',       // US book
+// ALL bookmakers for fetching and average calculation
+// Core set validated from OpticOdds API - keep to ~15 to avoid API limits
+// Used to calculate fair odds/average across many books (excluding Underdog)
+const ALL_BOOKMAKERS_IDS = [
+  // Sharp book for de-vigging
+  'pinnacle',
+
+  // PLAYABLE books (bet365, unibet) - where we actually bet
+  'bet365',
+  'unibet',
+
+  // Other books for calculating average fair odds
+  'draftkings',
+  'fanduel',
+  'betmgm',
+  'caesars',
+  'betrivers',
+  'fanatics',
+  'prizepicks',
+  'fliff',
+  'betway',
+  'bet99',
 ];
 
-// Bookmakers we can bet on (for display in "Show EV from" list)
-const PLAYABLE_BOOKMAKERS = ['Bet365', 'Kambi', 'Unibet DK', 'DanskeSpil', 'Betano'];
+// Use as-is (no duplicates in this list)
+const OPTIC_SPORTSBOOK_IDS = ALL_BOOKMAKERS_IDS;
+
+// Display names for sportsbooks
+const SPORTSBOOK_NAMES = {
+  'pinnacle': 'Pinnacle',
+  'draftkings': 'DraftKings',
+  'fanduel': 'FanDuel',
+  'betmgm': 'BetMGM',
+  'caesars': 'Caesars',
+  'betrivers': 'BetRivers',
+  'fanatics': 'Fanatics',
+  'betano': 'Betano',
+  'unibet_denmark_': 'Unibet DK',
+  'bovada': 'Bovada',
+  'betonline': 'BetOnline',
+  'prizepicks': 'PrizePicks',
+  'fliff': 'Fliff',
+  'betsson': 'Betsson',
+  'betway': 'Betway',
+  '888sport': '888sport',
+  'superbet': 'Superbet',
+};
+
+// Bookmakers we can actually bet on (only bet365 and unibet)
+// All other books are used to calculate the average fair odds for de-vigging
+const PLAYABLE_BOOKMAKERS = ['bet365', 'unibet'];
 
 // Stat types we want to compare (from label like "Player Name (StatType)")
 // Based on actual API responses from Pinnacle, DraftKings, FanDuel, Kambi
@@ -86,13 +118,36 @@ const BET365_MARKETS = {
   'Triple Double': 'triple_double',
 };
 
+// OpticOdds NBA market mapping - maps OpticOdds market IDs to our internal market keys
+const OPTIC_NBA_MARKETS = {
+  // Single stats
+  'player_points': 'points',
+  'player_assists': 'assists',
+  'player_rebounds': 'rebounds',
+  'player_made_threes': '3pointers',
+  'player_steals': 'steals',
+  'player_blocks': 'blocks',
+  'player_turnovers': 'turnovers',
+  // 2-stat combos
+  'player_points_+_assists': 'pts_asts',
+  'player_points_+_rebounds': 'pts_rebs',
+  'player_rebounds_+_assists': 'rebs_asts',
+  'player_steals_+_blocks': 'steals_blocks',
+  // 3-stat combo
+  'player_points_+_rebounds_+_assists': 'pts_rebs_asts',
+  // Double/Triple doubles
+  'player_double_double': 'double_double',
+  'player_triple_double': 'triple_double',
+};
+
 // Line tolerance for matching - use 0.25 to avoid mixing 2.0 and 2.5 lines
 // (2.0 = "2 or more", 2.5 = "3 or more" - these are different bets!)
 const LINE_TOLERANCE = 0.25;
 // Minimum EV percentage to show (3%+ for higher confidence)
 const MIN_EV_PERCENT = 3;
 // Minimum bookmakers with complete odds (over+under) for de-vigging
-const MIN_BOOKMAKERS = 2;
+// Minimum sharp books needed for de-vigging (1 = just Pinnacle is fine)
+const MIN_BOOKMAKERS = 1;
 
 // ============ DE-VIG METHODS ============
 const DEVIG_METHODS = {
@@ -359,6 +414,8 @@ export default function NBAEVScraping() {
   const [devigMethod, setDevigMethod] = useState('multiplicative');
   // Minimum EV% filter (user adjustable)
   const [minEVFilter, setMinEVFilter] = useState(MIN_EV_PERCENT);
+  // Maximum odds filter (decimal odds, e.g., 3.0 = +200)
+  const [maxOddsFilter, setMaxOddsFilter] = useState(10.0);
   // Sub-navigation tab: 'new' | 'tracked' | 'removed'
   const [activeTab, setActiveTab] = useState('new');
   // Market type filter: which markets to show
@@ -792,6 +849,124 @@ export default function NBAEVScraping() {
     return props;
   };
 
+  // Parse OpticOdds NBA API response format
+  const parseOpticOddsNBA = (oddsData) => {
+    const props = [];
+    if (!oddsData || !oddsData.odds || !Array.isArray(oddsData.odds)) {
+      console.warn('[OpticOdds NBA] No odds data or invalid format');
+      return props;
+    }
+
+    console.log(`[OpticOdds NBA] Parsing ${oddsData.odds.length} odds entries`);
+
+    // Group odds by player, market, line, and bookmaker
+    const oddsByGroup = {};
+
+    for (const odd of oddsData.odds) {
+      // Normalize bookmaker name to match PLAYABLE_BOOKMAKERS format
+      // API returns "Pinnacle", "DraftKings", etc. - convert to "pinnacle", "draftkings"
+      const bookmakerDisplay = odd.sportsbook;
+      const bookmaker = bookmakerDisplay.toLowerCase().replace(/\s+/g, '');
+
+      // Get market key from our mapping - use market_id (e.g., "player_points")
+      const marketKey = OPTIC_NBA_MARKETS[odd.market_id];
+      if (!marketKey) continue; // Skip unmapped markets
+
+      // Convert American odds to decimal
+      const decimalOdds = americanToDecimal(odd.price);
+      if (!decimalOdds || decimalOdds <= 1) continue;
+
+      // Extract line from points field
+      const line = odd.points !== null && odd.points !== undefined ? parseFloat(odd.points) : 0.5;
+      const isOver = odd.selection_line === 'over';
+      const isUnder = odd.selection_line === 'under';
+
+      // Get player name directly from selection field (e.g., "Ausar Thompson")
+      const playerName = odd.selection;
+
+      if (!playerName) continue;
+
+      // Get readable market name (odd.market is already display name like "Player Points")
+      const marketName = odd.market;
+
+      // Create grouping key
+      const groupKey = `${playerName}|${marketKey}|${line}|${bookmaker}`;
+
+      if (!oddsByGroup[groupKey]) {
+        oddsByGroup[groupKey] = {
+          player: playerName,
+          market: marketKey,
+          marketName: marketName,
+          line,
+          overOdds: null,
+          underOdds: null,
+          bookmaker,
+          updatedAt: odd.timestamp ? new Date(odd.timestamp * 1000).toISOString() : null,
+        };
+      }
+
+      // Assign odds based on type
+      if (isOver) {
+        oddsByGroup[groupKey].overOdds = decimalOdds;
+      } else if (isUnder) {
+        oddsByGroup[groupKey].underOdds = decimalOdds;
+      }
+    }
+
+    // Convert grouped odds to props array
+    for (const data of Object.values(oddsByGroup)) {
+      if (data.overOdds === null) continue; // Skip entries without over odds
+      props.push(data);
+    }
+
+    console.log(`[OpticOdds NBA] Parsed ${props.length} props from odds data`);
+    return props;
+  };
+
+  // Fetch odds for a fixture from OpticOdds API (via proxy)
+  const fetchFixtureOdds = async (fixtureId) => {
+    try {
+      // Build URL with all sportsbooks
+      const url = new URL(`${OPTIC_API_PROXY}/fixtures/odds`);
+      url.searchParams.set('fixture_id', fixtureId);
+
+      // Add all sportsbook IDs as separate parameters
+      for (const bookId of OPTIC_SPORTSBOOK_IDS) {
+        url.searchParams.append('sportsbook', bookId);
+      }
+
+      console.log(`[OpticOdds NBA] Fetching odds for fixture ${fixtureId}`);
+
+      const response = await fetch(url.toString());
+
+      if (!response.ok) {
+        console.warn(`[OpticOdds NBA] Response not OK: ${response.status}`);
+        return { props: [], updatedAt: null };
+      }
+
+      const result = await response.json();
+      const oddsData = result.data?.[0] || null;
+
+      if (!oddsData || !oddsData.odds) {
+        console.warn(`[OpticOdds NBA] No odds in response for fixture ${fixtureId}`);
+        return { props: [], updatedAt: null };
+      }
+
+      console.log(`[OpticOdds NBA] Got ${oddsData.odds.length} odds for fixture ${fixtureId}`);
+
+      // Parse odds using OpticOdds parser
+      const props = parseOpticOddsNBA(oddsData);
+      const updatedAt = oddsData.odds?.[0]?.timestamp
+        ? new Date(oddsData.odds[0].timestamp * 1000).toISOString()
+        : new Date().toISOString();
+
+      return { props, updatedAt };
+    } catch (err) {
+      console.error(`[OpticOdds NBA] Fetch error for fixture ${fixtureId}:`, err);
+      return { props: [], updatedAt: null };
+    }
+  };
+
   // Fetch cache server status
   const fetchCacheStatus = async () => {
     try {
@@ -1190,41 +1365,20 @@ export default function NBAEVScraping() {
 
   // Analyze a single match and return results (does not update state)
   const analyzeMatchInternal = async (match, onProgress) => {
-    const allProps = [];
+    console.log(`[NBA] Analyzing match: ${match.home} vs ${match.away}`);
 
-    // First, try to get cached odds for this event (saves API calls)
-    const cachedData = await fetchCachedOdds(match.id);
-    const usingCache = cachedData && cachedData.bookmakers && Object.keys(cachedData.bookmakers).length > 0;
+    // OpticOdds fetches all bookmakers in one API call
+    if (onProgress) onProgress(1, 'Fetching odds from OpticOdds...', 'API');
 
-    if (usingCache) {
-      const cachedBookmakers = Object.keys(cachedData.bookmakers).length;
-      console.log(`[Match ${match.id}] USING CACHE with ${cachedBookmakers} bookmakers`);
-      // When using cache, process all bookmakers instantly
-      if (onProgress) onProgress(ALL_BOOKMAKERS.length, 'Using cached data', 'CACHE');
+    // Fetch all odds for this fixture from OpticOdds
+    const { props: allProps } = await fetchFixtureOdds(match.id);
 
-      for (const bookmaker of ALL_BOOKMAKERS) {
-        const { props } = await fetchBookmakerOdds(match.id, bookmaker, cachedData);
-        allProps.push(...props);
-      }
-    } else {
-      console.log(`[Match ${match.id}] NO CACHE - using direct API`);
-      // No cache - fetch from API with progress animation
-      for (let i = 0; i < ALL_BOOKMAKERS.length; i++) {
-        const bookmaker = ALL_BOOKMAKERS[i];
-        if (onProgress) onProgress(i + 1, `Fetching ${bookmaker}...`, 'API');
-
-        const { props } = await fetchBookmakerOdds(match.id, bookmaker, null);
-        allProps.push(...props);
-
-        // Add delay between API requests
-        if (i < ALL_BOOKMAKERS.length - 1) {
-          await new Promise(r => setTimeout(r, 200));
-        }
-      }
-    }
+    console.log(`[NBA] Total props collected: ${allProps.length}`);
 
     // Group and match props
     const matchedGroups = groupAndMatchProps(allProps);
+
+    console.log(`[NBA] Matched groups: ${matchedGroups.length}`);
 
     // Return matched groups - EV calculation happens on render based on selected de-vig method
     return { matchedGroups, analyzed: true };
@@ -1242,7 +1396,7 @@ export default function NBAEVScraping() {
 
       setProgress({
         current: 0,
-        total: ALL_BOOKMAKERS.length,
+        total: ALL_BOOKMAKERS_IDS.length,
         status: 'Checking cache...',
         matchIndex: mIdx + 1,
         totalMatches: matchList.length,
@@ -1254,7 +1408,7 @@ export default function NBAEVScraping() {
         const result = await analyzeMatchInternal(match, (bookIdx, statusText, source) => {
           setProgress({
             current: bookIdx,
-            total: ALL_BOOKMAKERS.length,
+            total: ALL_BOOKMAKERS_IDS.length,
             status: statusText,
             matchIndex: mIdx + 1,
             totalMatches: matchList.length,
@@ -1305,70 +1459,51 @@ export default function NBAEVScraping() {
     setError(null);
 
     try {
-      const toDate = getNext24HoursDate();
-      const { from: yesterdayFrom, to: yesterdayTo } = getYesterdayDates();
+      // Fetch NBA fixtures from OpticOdds API (via proxy)
+      const url = new URL(`${OPTIC_API_PROXY}/fixtures`);
+      url.searchParams.set('sport', 'basketball');
+      url.searchParams.set('league', 'nba');
+      url.searchParams.set('status', 'unplayed');
 
-      // Fetch pending, live, and yesterday's matches in parallel
-      // Try both "completed" and "finished" statuses for yesterday's games
-      const [pendingResponse, liveResponse, yesterdayResponse1, yesterdayResponse2] = await Promise.all([
-        fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=pending&to=${toDate}`),
-        fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=live`),
-        fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=completed&from=${yesterdayFrom}&to=${yesterdayTo}`),
-        fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=finished&from=${yesterdayFrom}&to=${yesterdayTo}`)
-      ]);
+      console.log('[NBA EV] Fetching NBA fixtures from OpticOdds');
 
-      if (!pendingResponse.ok) {
-        throw new Error(`API error: ${pendingResponse.status}`);
+      const response = await fetch(url.toString());
+
+      if (!response.ok) {
+        throw new Error(`OpticOdds API error: ${response.status}`);
       }
 
-      const pendingData = await pendingResponse.json();
-      let liveData = [];
+      const result = await response.json();
+      const fixtures = result.data || [];
 
-      // Live endpoint might fail if no live matches, that's ok
-      if (liveResponse.ok) {
-        liveData = await liveResponse.json();
-        // Filter to only matches in first 20 minutes (player props still valuable early in game)
-        liveData = liveData.filter(match => {
-          const now = new Date();
-          const matchDate = new Date(match.date);
-          const diffMinutes = (now - matchDate) / (1000 * 60);
-          return diffMinutes <= 20;
+      // Filter to only include matches in the next 24 hours
+      const now = new Date();
+      const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      // Transform OpticOdds fixtures to our internal format (only next 24 hours)
+      const allMatches = [];
+      for (const fixture of fixtures) {
+        const fixtureDate = new Date(fixture.start_date);
+        // Only include matches starting between now and 24 hours from now
+        if (fixtureDate < now || fixtureDate > next24Hours) {
+          continue;
+        }
+        allMatches.push({
+          id: fixture.id,
+          home: fixture.home_team_display || fixture.home_team,
+          away: fixture.away_team_display || fixture.away_team,
+          date: fixture.start_date,
+          league: 'nba',
+          leagueName: fixture.league,
+          status: fixture.status,
+          isLive: fixture.is_live,
         });
-        // Mark as live
-        liveData = liveData.map(m => ({ ...m, isLive: true }));
       }
 
-      // Detect back-to-back teams from yesterday's games
-      const teamsPlayedYesterday = new Set();
+      console.log('[NBA EV] Received', fixtures.length, 'total NBA games, filtered to', allMatches.length, 'games in next 24 hours');
 
-      // Try completed status
-      if (yesterdayResponse1.ok) {
-        const data1 = await yesterdayResponse1.json();
-        for (const match of data1) {
-          teamsPlayedYesterday.add(match.home);
-          teamsPlayedYesterday.add(match.away);
-        }
-        console.log('[NBA EV] Yesterday games (completed):', data1.length);
-      }
-
-      // Try finished status
-      if (yesterdayResponse2.ok) {
-        const data2 = await yesterdayResponse2.json();
-        for (const match of data2) {
-          teamsPlayedYesterday.add(match.home);
-          teamsPlayedYesterday.add(match.away);
-        }
-        console.log('[NBA EV] Yesterday games (finished):', data2.length);
-      }
-
-      if (teamsPlayedYesterday.size > 0) {
-        setB2bTeams(teamsPlayedYesterday);
-        console.log('[NBA EV] Teams played yesterday:', Array.from(teamsPlayedYesterday));
-      }
-
-      // Combine: live matches first, then pending
-      const allMatches = [...liveData, ...pendingData];
-      console.log('[NBA EV] Received', pendingData.length, 'pending +', liveData.length, 'live matches');
+      // Sort by date
+      allMatches.sort((a, b) => new Date(a.date) - new Date(b.date));
 
       setMatches(allMatches);
       setLastUpdated(new Date());
@@ -1436,7 +1571,7 @@ export default function NBAEVScraping() {
         <div className="header-content">
           <div className="header-text">
             <h1>NBA EV Scraping</h1>
-            <p>De-vigged EV calculation across {ALL_BOOKMAKERS.length} bookmakers - Find {MIN_EV_PERCENT}%+ EV on {PLAYABLE_BOOKMAKERS.join(', ')}</p>
+            <p>De-vigged EV calculation across {ALL_BOOKMAKERS_IDS.length} bookmakers - Find {MIN_EV_PERCENT}%+ EV on {PLAYABLE_BOOKMAKERS.join(', ')}</p>
           </div>
 
           <div className="header-actions">
@@ -1471,7 +1606,7 @@ export default function NBAEVScraping() {
             <span key={b} className="bookmaker-tag playable">{b}</span>
           ))}
           <span className="bookmakers-label">For avg:</span>
-          {ALL_BOOKMAKERS.filter(b => !PLAYABLE_BOOKMAKERS.includes(b)).map(b => (
+          {ALL_BOOKMAKERS_IDS.filter(b => !PLAYABLE_BOOKMAKERS.includes(b)).map(b => (
             <span key={b} className="bookmaker-tag">{b}</span>
           ))}
         </div>
@@ -1524,7 +1659,7 @@ export default function NBAEVScraping() {
                 Select Bookmaker:
               </label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {ALL_BOOKMAKERS.map(bm => (
+                {ALL_BOOKMAKERS_IDS.map(bm => (
                   <button
                     key={bm}
                     onClick={() => setDebugBookmaker(bm)}
@@ -1800,11 +1935,12 @@ export default function NBAEVScraping() {
         <div>
           {/* Summary stats */}
           {Object.keys(computedMatchData).length > 0 && (() => {
-            // Calculate filtered counts (using allLines with minEVFilter, bookmaker filter, market filter, and removed bets)
+            // Calculate filtered counts (using allLines with minEVFilter, maxOddsFilter, bookmaker filter, market filter, and removed bets)
             const visibleOpps = Object.values(computedMatchData).reduce((sum, d) => {
               const lines = d.allLines || [];
               return sum + lines.filter(o =>
                 o.evPercent >= minEVFilter &&
+                o.odds <= maxOddsFilter &&
                 !isBetRemoved(o) &&
                 selectedBookmakers[o.bookmaker] &&
                 marketPassesFilter(o.market)
@@ -1812,7 +1948,7 @@ export default function NBAEVScraping() {
             }, 0);
             const totalOpps = Object.values(computedMatchData).reduce((sum, d) => {
               const lines = d.allLines || [];
-              return sum + lines.filter(o => o.evPercent >= minEVFilter && marketPassesFilter(o.market)).length;
+              return sum + lines.filter(o => o.evPercent >= minEVFilter && o.odds <= maxOddsFilter && marketPassesFilter(o.market)).length;
             }, 0);
             const hiddenCount = totalOpps - visibleOpps;
 
@@ -1837,7 +1973,7 @@ export default function NBAEVScraping() {
                       </span>
                     )}
                   </div>
-                  <div style={{ color: "#94a3b8", fontSize: 12 }}>+EV Bets ({minEVFilter}%+)</div>
+                  <div style={{ color: "#94a3b8", fontSize: 12 }}>+EV Bets ({minEVFilter}%+, ≤{maxOddsFilter.toFixed(1)})</div>
                 </div>
                 <div style={{
                   background: "rgba(59, 130, 246, 0.15)",
@@ -1904,6 +2040,7 @@ export default function NBAEVScraping() {
                   const lines = d.allLines || [];
                   return sum + lines.filter(o =>
                     o.evPercent >= minEVFilter &&
+                    o.odds <= maxOddsFilter &&
                     !isBetRemoved(o) &&
                     !isPlayerTracked(o) &&
                     selectedBookmakers[o.bookmaker] &&
@@ -2193,46 +2330,81 @@ export default function NBAEVScraping() {
           </div>
           )}
 
-          {/* Minimum EV% Slider - only show on New Bets tab */}
+          {/* Filters: Min EV% and Max Odds sliders - only show on New Bets tab */}
           {activeTab === 'new' && (
           <div style={{
             display: "flex",
-            alignItems: "center",
-            gap: 16,
+            flexDirection: "column",
+            gap: 12,
             marginBottom: 20,
             padding: "12px 16px",
             background: "rgba(30, 41, 59, 0.6)",
             borderRadius: 12,
             border: "1px solid rgba(255, 255, 255, 0.08)",
           }}>
-            <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600, minWidth: 100 }}>
-              Min EV%:
-            </span>
-            <input
-              type="range"
-              min="0"
-              max="20"
-              step="0.5"
-              value={minEVFilter}
-              onChange={(e) => setMinEVFilter(parseFloat(e.target.value))}
-              style={{
-                flex: 1,
-                height: 6,
-                borderRadius: 3,
-                appearance: "none",
-                background: `linear-gradient(to right, #22c55e 0%, #22c55e ${(minEVFilter / 20) * 100}%, rgba(100, 116, 139, 0.3) ${(minEVFilter / 20) * 100}%, rgba(100, 116, 139, 0.3) 100%)`,
-                cursor: "pointer",
-              }}
-            />
-            <span style={{
-              color: "#22c55e",
-              fontSize: 16,
-              fontWeight: 700,
-              minWidth: 50,
-              textAlign: "right",
-            }}>
-              {minEVFilter}%
-            </span>
+            {/* Min EV% Slider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600, minWidth: 100 }}>
+                Min EV%:
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="20"
+                step="0.5"
+                value={minEVFilter}
+                onChange={(e) => setMinEVFilter(parseFloat(e.target.value))}
+                style={{
+                  flex: 1,
+                  height: 6,
+                  borderRadius: 3,
+                  appearance: "none",
+                  background: `linear-gradient(to right, #22c55e 0%, #22c55e ${(minEVFilter / 20) * 100}%, rgba(100, 116, 139, 0.3) ${(minEVFilter / 20) * 100}%, rgba(100, 116, 139, 0.3) 100%)`,
+                  cursor: "pointer",
+                }}
+              />
+              <span style={{
+                color: "#22c55e",
+                fontSize: 16,
+                fontWeight: 700,
+                minWidth: 50,
+                textAlign: "right",
+              }}>
+                {minEVFilter}%
+              </span>
+            </div>
+
+            {/* Max Odds Slider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600, minWidth: 100 }}>
+                Max Odds:
+              </span>
+              <input
+                type="range"
+                min="1.1"
+                max="10"
+                step="0.1"
+                value={maxOddsFilter}
+                onChange={(e) => setMaxOddsFilter(parseFloat(e.target.value))}
+                style={{
+                  flex: 1,
+                  height: 6,
+                  borderRadius: 3,
+                  appearance: "none",
+                  background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((maxOddsFilter - 1.1) / 8.9) * 100}%, rgba(100, 116, 139, 0.3) ${((maxOddsFilter - 1.1) / 8.9) * 100}%, rgba(100, 116, 139, 0.3) 100%)`,
+                  cursor: "pointer",
+                }}
+              />
+              <span style={{
+                color: "#3b82f6",
+                fontSize: 16,
+                fontWeight: 700,
+                minWidth: 90,
+                textAlign: "right",
+              }}>
+                {maxOddsFilter.toFixed(1)} ({maxOddsFilter >= 2 ? '+' : ''}{maxOddsFilter >= 2 ? Math.round((maxOddsFilter - 1) * 100) : Math.round(-100 / (maxOddsFilter - 1))})
+              </span>
+            </div>
           </div>
           )}
 
@@ -2314,6 +2486,7 @@ export default function NBAEVScraping() {
               const allLines = data.allLines || [];
               const opportunities = allLines.filter(opp =>
                 opp.evPercent >= minEVFilter &&
+                opp.odds <= maxOddsFilter &&
                 !isBetRemoved(opp) &&
                 !isPlayerTracked(opp) &&  // Exclude ALL bets for players who have any tracked bet
                 selectedBookmakers[opp.bookmaker] &&
@@ -2460,7 +2633,7 @@ export default function NBAEVScraping() {
                       borderTop: "1px solid rgba(255, 255, 255, 0.1)",
                     }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: "#22c55e", marginBottom: 12 }}>
-                        +EV Opportunities ({minEVFilter}%+ edge)
+                        +EV Opportunities ({minEVFilter}%+, ≤{maxOddsFilter.toFixed(1)} odds)
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         {opportunities.map((ev, idx) => (
