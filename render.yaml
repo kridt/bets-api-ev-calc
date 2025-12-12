@@ -22,3 +22,5 @@ services:
         sync: false
       - key: FIREBASE_PRIVATE_KEY
         sync: false
+      - key: OPTIC_ODDS_API_KEY
+        sync: false

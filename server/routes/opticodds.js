@@ -4,8 +4,13 @@
 const express = require('express');
 const router = express.Router();
 
-const OPTIC_API_KEY = 'aa0061ed-f43f-4ad6-a493-8bb239253a00';
+const OPTIC_API_KEY = process.env.OPTIC_ODDS_API_KEY;
 const OPTIC_API_BASE = 'https://api.opticodds.com/api/v3';
+
+// Check if API key is configured
+if (!OPTIC_API_KEY) {
+  console.warn('[OpticOdds] Warning: OPTIC_ODDS_API_KEY environment variable not set');
+}
 
 // Proxy endpoint for fixtures
 // GET /api/opticodds/fixtures?sport=soccer&league=england_-_premier_league&status=unplayed
