@@ -24,3 +24,7 @@ services:
         sync: false
       - key: OPTIC_ODDS_API_KEY
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
