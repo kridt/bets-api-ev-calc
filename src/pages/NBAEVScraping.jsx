@@ -7,6 +7,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import ConnectionStatus from '../components/ConnectionStatus';
 import { BetTracker } from '../services/betTracker';
+import { autoTrackBet, TRACKING_CRITERIA } from '../services/autoTracker';
 import './NBAEV.css';
 import {
   americanToDecimal,
@@ -1371,6 +1372,55 @@ export default function NBAEVScraping() {
       delay += 500; // 500ms between each request
     }
   }, [computedMatchData]); // Re-run when match data changes
+
+  // Auto-track qualifying bets to Supabase (odds < 4.0, EV > 4%)
+  useEffect(() => {
+    if (!computedMatchData || Object.keys(computedMatchData).length === 0) return;
+
+    // Collect all qualifying bets
+    const qualifyingBets = [];
+    for (const [matchId, data] of Object.entries(computedMatchData)) {
+      const lines = data.allLines || [];
+      const matchInfo = matches.find(m => m.id === matchId);
+
+      for (const ev of lines) {
+        // Check criteria: odds < 4.0 AND EV >= 4%
+        if (ev.odds < TRACKING_CRITERIA.maxOdds && ev.evPercent >= TRACKING_CRITERIA.minEv) {
+          qualifyingBets.push({
+            bet: {
+              matchId,
+              player: ev.player,
+              market: ev.market,
+              line: ev.line,
+              betType: ev.betType,
+              bookmaker: ev.bookmaker,
+              odds: ev.odds,
+              fairOdds: ev.fairOdds,
+              fairProb: ev.fairProb,
+              ev: ev.evPercent,
+            },
+            matchInfo: matchInfo ? {
+              matchId,
+              matchName: `${matchInfo.home} vs ${matchInfo.away}`,
+              homeTeam: matchInfo.home,
+              awayTeam: matchInfo.away,
+              matchDate: matchInfo.startDate,
+              league: 'NBA',
+            } : { matchId, league: 'NBA' },
+          });
+        }
+      }
+    }
+
+    if (qualifyingBets.length === 0) return;
+
+    // Auto-track with staggered delays to avoid rate limiting
+    let delay = 0;
+    for (const { bet, matchInfo } of qualifyingBets) {
+      setTimeout(() => autoTrackBet(bet, matchInfo, 'nba'), delay);
+      delay += 100; // 100ms between each
+    }
+  }, [computedMatchData, matches]); // Re-run when match data changes
 
   // Analyze a single match and return results (does not update state)
   const analyzeMatchInternal = async (match, onProgress) => {
