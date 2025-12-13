@@ -20,9 +20,12 @@ import {
   getFixtureOdds,
 } from '../services/opticOddsApi';
 
-// OpticOdds API Configuration - Use proxy server to avoid CORS issues
-const OPTIC_API_BASE = import.meta.env.VITE_FOOTBALL_API_URL || 'http://localhost:4000';
-const OPTIC_API_PROXY = `${OPTIC_API_BASE}/api/opticodds`;
+// OpticOdds API Configuration - Use Vercel serverless functions
+// In production: /api/opticodds (same domain)
+// In development with local server: http://localhost:4000/api/opticodds
+const OPTIC_API_PROXY = import.meta.env.DEV && import.meta.env.VITE_FOOTBALL_API_URL
+  ? `${import.meta.env.VITE_FOOTBALL_API_URL}/api/opticodds`
+  : '/api/opticodds';
 
 // Cache server URL - reduces API calls by serving cached odds
 const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
