@@ -15,7 +15,7 @@ const getSocketUrl = () => {
     return 'http://localhost:4000';
   }
   // Default production URL (Render)
-  return 'https://epl-value-bets.onrender.com';
+  return 'https://odds-notifyer-server.onrender.com';
 };
 
 /**

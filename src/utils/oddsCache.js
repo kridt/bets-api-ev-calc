@@ -1,7 +1,7 @@
 // src/utils/oddsCache.js
 // Client-side utility to fetch from the odds cache server
 
-// Cache server URL - update this after deploying to Render
+// Cache server URL - uses environment variable or defaults to Render deployment
 const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
 
 // Direct API config (fallback) - uses environment variable
