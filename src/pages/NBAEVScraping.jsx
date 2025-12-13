@@ -15,11 +15,17 @@ import {
 } from '../services/opticOddsApi';
 
 // OpticOdds API Configuration - Use Vercel serverless functions
-// In production: /api/opticodds (same domain)
+// In production: uses window.location.origin + /api/opticodds
 // In development with local server: http://localhost:4000/api/opticodds
-const OPTIC_API_PROXY = import.meta.env.DEV && import.meta.env.VITE_FOOTBALL_API_URL
-  ? `${import.meta.env.VITE_FOOTBALL_API_URL}/api/opticodds`
-  : '/api/opticodds';
+const getOpticApiProxy = () => {
+  if (import.meta.env.DEV && import.meta.env.VITE_FOOTBALL_API_URL) {
+    return `${import.meta.env.VITE_FOOTBALL_API_URL}/api/opticodds`;
+  }
+  // In production, use current origin for full URL (needed for new URL())
+  return typeof window !== 'undefined'
+    ? `${window.location.origin}/api/opticodds`
+    : '/api/opticodds';
+};
 
 // Cache server URL - reduces API calls by serving cached odds
 const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
@@ -930,7 +936,7 @@ export default function NBAEVScraping() {
   const fetchFixtureOdds = async (fixtureId) => {
     try {
       // Build URL with all sportsbooks
-      const url = new URL(`${OPTIC_API_PROXY}/fixtures/odds`);
+      const url = new URL(`${getOpticApiProxy()}/fixtures/odds`);
       url.searchParams.set('fixture_id', fixtureId);
 
       // Add all sportsbook IDs as separate parameters
@@ -1463,7 +1469,7 @@ export default function NBAEVScraping() {
 
     try {
       // Fetch NBA fixtures from OpticOdds API (via proxy)
-      const url = new URL(`${OPTIC_API_PROXY}/fixtures`);
+      const url = new URL(`${getOpticApiProxy()}/fixtures`);
       url.searchParams.set('sport', 'basketball');
       url.searchParams.set('league', 'nba');
       url.searchParams.set('status', 'unplayed');

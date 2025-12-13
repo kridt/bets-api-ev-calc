@@ -21,6 +21,12 @@ export default async function handler(req, res) {
   try {
     // Get the path from the catch-all route
     const { path } = req.query;
+
+    // Handle undefined/empty path
+    if (!path || (Array.isArray(path) && path.length === 0)) {
+      return res.status(400).json({ error: 'No API endpoint specified' });
+    }
+
     const endpoint = Array.isArray(path) ? path.join('/') : path;
 
     // Build the OpticOdds URL
