@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const { initializeSchedulers } = require('./schedulers');
 const apiRoutes = require('./routes/api');
+const { startAutoTracker } = require('./services/autoEVTracker');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -80,6 +81,9 @@ app.listen(PORT, () => {
 
   // Initialize schedulers
   initializeSchedulers();
+
+  // Start auto EV tracker (runs every 2 minutes)
+  startAutoTracker(2 * 60 * 1000);
 });
 
 // Graceful shutdown
