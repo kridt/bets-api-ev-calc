@@ -2,8 +2,8 @@
 // Client-side utility to fetch from the odds cache server
 
 // Cache server URL - uses environment variable or defaults to Render deployment
-// Note: This should point to the epl-value-bets server which uses OpticOdds
-const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://epl-value-bets.onrender.com';
+// Note: This should point to the odds-notifyer-server which uses OpticOdds
+const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
 
 // OpticOdds API config (fallback) - uses environment variable
 const OPTIC_API_KEY = import.meta.env.VITE_OPTIC_ODDS_API_KEY || '';
