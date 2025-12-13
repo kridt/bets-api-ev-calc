@@ -1021,4 +1021,104 @@ router.post('/nba/calculate-ev', (req, res) => {
 // ============================================
 router.use('/opticodds', opticOddsRoutes);
 
+// ============================================
+// FOOTBALL BET HISTORY (Sportmonks)
+// ============================================
+
+// Import sportmonks stats service
+let sportmonksStats;
+try {
+  sportmonksStats = require('../services/sportmonksStats');
+} catch (error) {
+  console.warn('[API] Sportmonks stats service not loaded:', error.message);
+}
+
+/**
+ * POST /api/football/bet-history
+ * Check how many times a bet would have won in last 10 matches
+ * Body: { market, betType, line, homeTeam, awayTeam, selection }
+ */
+router.post('/football/bet-history', async (req, res) => {
+  if (!sportmonksStats) {
+    return res.status(503).json({
+      success: false,
+      error: 'Sportmonks stats service not available'
+    });
+  }
+
+  try {
+    const { market, betType, line, homeTeam, awayTeam, selection } = req.body;
+
+    if (!market || !homeTeam) {
+      return res.status(400).json({
+        success: false,
+        error: 'Required: market, homeTeam'
+      });
+    }
+
+    console.log(`[API] Checking bet history: ${homeTeam} - ${market} ${betType} ${line}`);
+
+    const result = await sportmonksStats.checkBetHistory({
+      market,
+      betType,
+      line,
+      homeTeam,
+      awayTeam,
+      selection
+    });
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('[API] Error checking bet history:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/football/team-fixtures/:teamName
+ * Get last 10 fixtures for a team
+ */
+router.get('/football/team-fixtures/:teamName', async (req, res) => {
+  if (!sportmonksStats) {
+    return res.status(503).json({
+      success: false,
+      error: 'Sportmonks stats service not available'
+    });
+  }
+
+  try {
+    const { teamName } = req.params;
+    const { limit = 10 } = req.query;
+
+    const team = await sportmonksStats.searchTeam(teamName);
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        error: `Team not found: ${teamName}`
+      });
+    }
+
+    const fixtures = await sportmonksStats.getTeamLastFixtures(team.id, parseInt(limit));
+    const stats = fixtures.map(f => sportmonksStats.extractMatchStats(f, team.id));
+
+    res.json({
+      success: true,
+      team: { id: team.id, name: team.name },
+      fixtures: stats
+    });
+  } catch (error) {
+    console.error('[API] Error fetching team fixtures:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

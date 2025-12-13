@@ -6,6 +6,8 @@ import App from "./App.jsx";
 import NBAEVScraping from "./pages/NBAEVScraping.jsx";
 import FootballEVScraping from "./pages/FootballEVScraping.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import CachedNBAEV from "./pages/CachedNBAEV.jsx";
+import CachedFootballEV from "./pages/CachedFootballEV.jsx";
 import "./index.css";
 
 const router = createBrowserRouter(
@@ -14,8 +16,12 @@ const router = createBrowserRouter(
       path: "/",
       element: <App />,
       children: [
-        { index: true, element: <NBAEVScraping /> },
-        { path: "football-ev", element: <FootballEVScraping /> },
+        { index: true, element: <CachedNBAEV /> },
+        { path: "nba-ev", element: <NBAEVScraping /> },
+        { path: "nba-ev-cached", element: <CachedNBAEV /> },
+        { path: "football-ev", element: <CachedFootballEV /> },
+        { path: "football-ev-live", element: <FootballEVScraping /> },
+        { path: "football-ev-cached", element: <CachedFootballEV /> },
         { path: "dashboard", element: <Dashboard /> },
       ],
     },

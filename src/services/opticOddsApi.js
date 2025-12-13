@@ -2,7 +2,8 @@
 // OpticOdds API service for fetching odds data
 // API Documentation: https://developer.opticodds.com
 
-const OPTIC_API_KEY = 'aa0061ed-f43f-4ad6-a493-8bb239253a00';
+// OpticOdds API key - uses environment variable
+const OPTIC_API_KEY = import.meta.env.VITE_OPTIC_ODDS_API_KEY || '';
 const OPTIC_API_BASE = 'https://api.opticodds.com/api/v3';
 
 // ============ SPORTSBOOKS ============

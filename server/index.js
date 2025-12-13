@@ -3,11 +3,16 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
 const { initializeSchedulers } = require('./schedulers');
 const apiRoutes = require('./routes/api');
+const cacheRoutes = require('./routes/cache');
 const { startAutoTracker } = require('./services/autoEVTracker');
+const { startCacheScheduler } = require('./schedulers/cacheScheduler');
+const { initWebSocket } = require('./websocket');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
 // Middleware
@@ -24,6 +29,7 @@ app.use((req, res, next) => {
 
 // API Routes
 app.use('/api', apiRoutes);
+app.use('/api/cache', cacheRoutes);
 
 // Serve static frontend files in production
 const distPath = path.join(__dirname, '..', 'dist');
@@ -71,12 +77,16 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Initialize WebSocket server
+initWebSocket(server);
+
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log('\n' + '='.repeat(60));
   console.log('🚀 BETS STATS TRACKING SERVER');
   console.log('='.repeat(60));
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`WebSocket enabled at ws://localhost:${PORT}/socket.io`);
   console.log('='.repeat(60) + '\n');
 
   // Initialize schedulers
@@ -84,6 +94,9 @@ app.listen(PORT, () => {
 
   // Start auto EV tracker (runs every 2 minutes)
   startAutoTracker(2 * 60 * 1000);
+
+  // Start cache scheduler (refreshes NBA/Football every 5 minutes)
+  startCacheScheduler();
 });
 
 // Graceful shutdown

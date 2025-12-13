@@ -4,8 +4,8 @@
 // Cache server URL - update this after deploying to Render
 const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
 
-// Direct API config (fallback)
-const ODDS_API_KEY = '811e5fb0efa75d2b92e800cb55b60b30f62af8c21da06c4b2952eb516bee0a2e';
+// Direct API config (fallback) - uses environment variable
+const ODDS_API_KEY = import.meta.env.VITE_ODDS_API_KEY || '';
 const ODDS_API_BASE = 'https://api2.odds-api.io/v3';
 
 // Flag to track if cache server is available
