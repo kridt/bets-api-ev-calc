@@ -4,12 +4,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 
-// Server URL - use relative path in production, localhost in dev
+// Server URL - use environment variable in production, localhost in dev
 const getSocketUrl = () => {
-  if (import.meta.env.PROD) {
-    return window.location.origin;
+  // Check for explicit server URL first
+  if (import.meta.env.VITE_API_SERVER_URL) {
+    return import.meta.env.VITE_API_SERVER_URL;
   }
-  return 'http://localhost:4000';
+  // Fallback to localhost in dev
+  if (!import.meta.env.PROD) {
+    return 'http://localhost:4000';
+  }
+  // Default production URL (Render)
+  return 'https://epl-value-bets.onrender.com';
 };
 
 /**
