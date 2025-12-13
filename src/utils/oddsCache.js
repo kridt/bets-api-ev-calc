@@ -2,11 +2,12 @@
 // Client-side utility to fetch from the odds cache server
 
 // Cache server URL - uses environment variable or defaults to Render deployment
-const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
+// Note: This should point to the epl-value-bets server which uses OpticOdds
+const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://epl-value-bets.onrender.com';
 
-// Direct API config (fallback) - uses environment variable
-const ODDS_API_KEY = import.meta.env.VITE_ODDS_API_KEY || '';
-const ODDS_API_BASE = 'https://api2.odds-api.io/v3';
+// OpticOdds API config (fallback) - uses environment variable
+const OPTIC_API_KEY = import.meta.env.VITE_OPTIC_ODDS_API_KEY || '';
+const OPTIC_API_BASE = 'https://api.opticodds.com/api/v3';
 
 // Flag to track if cache server is available
 let cacheServerAvailable = true;
@@ -66,14 +67,14 @@ export async function getNbaEvents() {
     }
   }
 
-  // Fallback to direct API
-  console.log('[OddsCache] Fetching NBA events from direct API');
-  const toDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  // Fallback to direct OpticOdds API
+  console.log('[OddsCache] Fetching NBA events from OpticOdds API');
   const response = await fetch(
-    `${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=pending&to=${toDate}`
+    `${OPTIC_API_BASE}/fixtures/active?league=nba`,
+    { headers: { 'x-api-key': OPTIC_API_KEY } }
   );
-  const events = await response.json();
-  return { events, fromCache: false, lastUpdate: new Date() };
+  const data = await response.json();
+  return { events: data.data || [], fromCache: false, lastUpdate: new Date() };
 }
 
 // Get NBA odds for a specific event
@@ -95,14 +96,15 @@ export async function getNbaOdds(eventId, bookmakers) {
     }
   }
 
-  // Fallback to direct API
-  console.log(`[OddsCache] Fetching NBA odds for ${eventId} from direct API`);
-  const bookmakerStr = Array.isArray(bookmakers) ? bookmakers.join(',') : bookmakers;
-  const response = await fetch(
-    `${ODDS_API_BASE}/odds?apiKey=${ODDS_API_KEY}&eventId=${eventId}&bookmakers=${bookmakerStr}`
-  );
-  const odds = await response.json();
-  return { odds, fromCache: false };
+  // Fallback to direct OpticOdds API
+  console.log(`[OddsCache] Fetching NBA odds for ${eventId} from OpticOdds API`);
+  const url = new URL(`${OPTIC_API_BASE}/fixtures/odds`);
+  url.searchParams.set('fixture_id', eventId);
+  const booksArray = Array.isArray(bookmakers) ? bookmakers : [bookmakers];
+  booksArray.forEach(b => url.searchParams.append('sportsbook', b));
+  const response = await fetch(url.toString(), { headers: { 'x-api-key': OPTIC_API_KEY } });
+  const data = await response.json();
+  return { odds: data.data?.[0] || null, fromCache: false };
 }
 
 // Get all NBA data (events + odds combined)
@@ -148,14 +150,14 @@ export async function getFootballEvents(leagueSlug) {
     }
   }
 
-  // Fallback to direct API
-  console.log('[OddsCache] Fetching football events from direct API');
-  const toDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  // Fallback to direct OpticOdds API
+  console.log('[OddsCache] Fetching football events from OpticOdds API');
   const response = await fetch(
-    `${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=football&league=${leagueSlug}&status=pending&to=${toDate}`
+    `${OPTIC_API_BASE}/fixtures?sport=soccer&league=${leagueSlug}&status=unplayed`,
+    { headers: { 'x-api-key': OPTIC_API_KEY } }
   );
-  const events = await response.json();
-  return { events, fromCache: false, lastUpdate: new Date() };
+  const data = await response.json();
+  return { events: data.data || [], fromCache: false, lastUpdate: new Date() };
 }
 
 // Get football odds for a specific event
@@ -188,13 +190,14 @@ export async function getFootballOdds(eventId, bookmaker) {
     }
   }
 
-  // Fallback to direct API
-  console.log(`[OddsCache] Fetching football odds for ${eventId}/${bookmaker} from direct API`);
-  const response = await fetch(
-    `${ODDS_API_BASE}/odds?apiKey=${ODDS_API_KEY}&eventId=${eventId}&bookmakers=${bookmaker}`
-  );
-  const odds = await response.json();
-  return { odds, fromCache: false };
+  // Fallback to direct OpticOdds API
+  console.log(`[OddsCache] Fetching football odds for ${eventId}/${bookmaker} from OpticOdds API`);
+  const url = new URL(`${OPTIC_API_BASE}/fixtures/odds`);
+  url.searchParams.set('fixture_id', eventId);
+  if (bookmaker) url.searchParams.append('sportsbook', bookmaker);
+  const response = await fetch(url.toString(), { headers: { 'x-api-key': OPTIC_API_KEY } });
+  const data = await response.json();
+  return { odds: data.data?.[0] || null, fromCache: false };
 }
 
 // Get all football data for a league
@@ -224,6 +227,6 @@ export async function getAllFootballData(leagueSlug) {
 // Export config for components that need it
 export const config = {
   CACHE_SERVER_URL,
-  ODDS_API_KEY,
-  ODDS_API_BASE
+  OPTIC_API_KEY,
+  OPTIC_API_BASE
 };
