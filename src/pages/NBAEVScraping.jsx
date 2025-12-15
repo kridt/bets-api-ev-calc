@@ -1291,28 +1291,41 @@ export default function NBAEVScraping() {
 
     try {
       // Fetch NBA events from cache server (which proxies to odds-api.io)
-      console.log('[NBA EV] Fetching from cache server:', CACHE_SERVER_URL);
-      const response = await fetch(`${CACHE_SERVER_URL}/api/nba/events`);
+      const fetchUrl = `${CACHE_SERVER_URL}/api/nba/events`;
+      console.log('[NBA EV] Fetching from cache server:', fetchUrl);
+
+      const response = await fetch(fetchUrl);
+      console.log('[NBA EV] Response status:', response.status, response.ok);
 
       if (!response.ok) {
         throw new Error(`Cache server error: ${response.status}`);
       }
 
       const data = await response.json();
-      const pendingData = data.events || [];
+      console.log('[NBA EV] Raw response keys:', Object.keys(data));
 
+      const pendingData = data.events || [];
       console.log('[NBA EV] Received', pendingData.length, 'matches from cache server');
+
+      if (pendingData.length > 0) {
+        console.log('[NBA EV] First match:', pendingData[0]?.home, 'vs', pendingData[0]?.away, 'at', pendingData[0]?.date);
+      }
 
       // Filter to upcoming matches (next 7 days as per cache server config)
       const now = new Date();
+      console.log('[NBA EV] Current time:', now.toISOString());
+
       const upcomingMatches = pendingData.filter(match => {
         const matchDate = new Date(match.date);
         return matchDate > now;
       });
 
+      console.log('[NBA EV] After filter:', upcomingMatches.length, 'upcoming matches (was', pendingData.length, ')');
+
       // Sort by date
       upcomingMatches.sort((a, b) => new Date(a.date) - new Date(b.date));
 
+      console.log('[NBA EV] Setting matches state with', upcomingMatches.length, 'matches');
       setMatches(upcomingMatches);
       setLastUpdated(data.lastUpdate ? new Date(data.lastUpdate) : new Date());
       setLoading(false);
@@ -1322,8 +1335,9 @@ export default function NBAEVScraping() {
         await analyzeAllMatches(upcomingMatches);
       }
     } catch (err) {
-      console.error('[NBA EV] Error:', err);
-      setError(err.message);
+      console.error('[NBA EV] Error fetching matches:', err);
+      console.error('[NBA EV] Error stack:', err.stack);
+      setError(`Failed to load matches: ${err.message}`);
       setLoading(false);
     }
   };
