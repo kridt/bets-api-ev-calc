@@ -16,7 +16,7 @@ const router = createBrowserRouter(
       path: "/",
       element: <App />,
       children: [
-        { index: true, element: <CachedNBAEV /> },
+        { index: true, element: <NBAEVScraping /> },
         { path: "nba-ev", element: <NBAEVScraping /> },
         { path: "nba-ev-cached", element: <CachedNBAEV /> },
         { path: "football-ev", element: <CachedFootballEV /> },
