@@ -1,7 +1,6 @@
 // src/pages/FootballEVScraping.jsx
 // Football EV Scraping - Fetches football matches and compares player props across bookmakers
 // Now with real-time WebSocket updates!
-// Updated to use OpticOdds API for odds data
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import footballLeagues from "../config/footballLeagues.json";
@@ -11,63 +10,41 @@ import ConnectionStatus from '../components/ConnectionStatus';
 import { BetTracker } from '../services/betTracker';
 import { HelpTooltip } from '../components/Tooltip';
 import './FootballEV.css';
-import {
-  americanToDecimal,
-  SPORTSBOOK_MAP,
-  SPORTSBOOK_DISPLAY,
-  SOCCER_LEAGUES,
-  getFixtures,
-  getFixtureOdds,
-} from '../services/opticOddsApi';
 
-// OpticOdds API Configuration - Use Vercel serverless functions
-// In production: uses window.location.origin + /api/opticodds
-// In development with local server: http://localhost:4000/api/opticodds
-const getOpticApiProxy = () => {
-  if (import.meta.env.DEV && import.meta.env.VITE_FOOTBALL_API_URL) {
-    return `${import.meta.env.VITE_FOOTBALL_API_URL}/api/opticodds`;
-  }
-  // In production, use current origin for full URL (needed for new URL())
-  return typeof window !== 'undefined'
-    ? `${window.location.origin}/api/opticodds`
-    : '/api/opticodds';
-};
+const ODDS_API_KEY =
+  "811e5fb0efa75d2b92e800cb55b60b30f62af8c21da06c4b2952eb516bee0a2e";
+const ODDS_API_BASE = "https://api2.odds-api.io/v3";
 
 // Cache server URL - reduces API calls by serving cached odds
 const CACHE_SERVER_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
 
-// Bookmakers for fetching odds - OpticOdds available bookmakers
-// NOTE: bet365 is NOT available on OpticOdds (is_active: false)
+// Bookmakers for fetching odds - all bookmakers with football coverage
 // Pinnacle is used as the sharp line for de-vigging
-// Verified against OpticOdds /sportsbooks/active endpoint
 const ALL_BOOKMAKERS = [
   "Pinnacle",      // Sharp line (used for fair odds calculation)
-  "Betano",        // European book - high coverage
-  "Unibet DK",     // Danish Unibet
-  "DraftKings",    // US book - high coverage
-  "FanDuel",       // US book - high coverage
-  "BetMGM",        // US book
+  "Bet365",        // Full coverage (48 markets)
+  "Kambi",         // Full coverage (30 markets)
+  "Unibet DK",     // Danish Unibet (13 markets)
+  "BetMGM",        // Full coverage (11 markets)
+  "Bovada",        // Full coverage (11 markets)
+  "BetRivers",     // Full coverage (10 markets)
+  "DraftKings",    // Full coverage (8 markets)
+  "BetOnline.ag",  // Full coverage (7 markets)
+  "Superbet",      // Full coverage (7 markets)
+  "FanDuel",       // ML & Totals (2 markets)
+  "Fanatics",      // Limited (1 market)
+  "ESPN BET",      // US book
   "Caesars",       // US book
-  "BetRivers",     // US book
-  "Superbet",      // European book
-  "Betsson",       // European book
-  "Betsafe",       // European book
-  "888sport",      // European book
-  "Betway",        // European book
-  "William Hill",  // UK book
-  "Fanatics",      // US book
-  "Bovada",        // Offshore book
-  "BetOnline",     // Offshore book
-  "Betfair",       // European exchange
-  "bwin",          // European book
+  "DanskeSpil",    // Danish book
+  "Betano",        // European book
+  "Underdog",      // Props book
+  "Fliff",         // Props book
+  "BetPARX",       // US book
+  "Bally Bet",     // US book
 ];
 
-// OpticOdds sportsbook IDs for API calls
-const OPTIC_SPORTSBOOK_IDS = ALL_BOOKMAKERS.map(b => SPORTSBOOK_MAP[b] || b.toLowerCase().replace(/\s+/g, '_'));
-
 // Bookmakers we can bet on (for display in "Show EV from" list)
-// NOTE: bet365 removed - not available on OpticOdds
-const PLAYABLE_BOOKMAKERS = ["Betano", "Unibet DK", "DraftKings", "FanDuel", "Pinnacle"];
+const PLAYABLE_BOOKMAKERS = ["Bet365", "Kambi", "Unibet DK", "DanskeSpil", "Betano"];
 
 // All available markets - both player props and match markets
 // marketType: 'player' (has label), 'totals' (over/under), 'spread' (home/away handicap)
@@ -688,124 +665,145 @@ export default function FootballEVScraping() {
     return date.toISOString().replace(/\.\d{3}Z$/, "Z");
   };
 
-  // OpticOdds market mapping - maps OpticOdds market IDs to our internal market keys
-  const OPTIC_MARKET_MAP = {
-    // Match totals
-    'total_goals': { key: 'totals', label: 'Match Totals', marketType: 'totals', category: 'match' },
-    'asian_total_goals': { key: 'totals', label: 'Match Totals', marketType: 'totals', category: 'match' },
-    // Spreads
-    'asian_handicap': { key: 'spread', label: 'Match Spread', marketType: 'spread', category: 'match' },
-    'goal_spread': { key: 'spread', label: 'Match Spread', marketType: 'spread', category: 'match' },
-    // Team totals
-    'team_total_goals': { key: 'team_total', label: 'Team Total', marketType: 'totals', category: 'match' },
-    // Corners
-    'total_corners': { key: 'corners_totals', label: 'Corners Totals', marketType: 'totals', category: 'match' },
-    'corner_handicap': { key: 'corners_spread', label: 'Corners Spread', marketType: 'spread', category: 'match' },
-    // Shots
-    'total_shots': { key: 'shots_totals', label: 'Total Shots', marketType: 'totals', category: 'match' },
-    'total_shots_on_target': { key: 'shots_on_target_totals', label: 'Shots on Target', marketType: 'totals', category: 'match' },
-    'team_total_shots': { key: 'shots_home', label: 'Team Shots', marketType: 'totals', category: 'match' },
-    'team_total_shots_on_target': { key: 'shots_on_target_home', label: 'Team Shots on Target', marketType: 'totals', category: 'match' },
-    // Cards
-    'total_cards': { key: 'bookings_totals', label: 'Cards Totals', marketType: 'totals', category: 'match' },
-    // Player props
-    'anytime_goal_scorer': { key: 'goalscorer', label: 'Anytime Goalscorer', marketType: 'player', oneWay: true, category: 'player' },
-    'first_goal_scorer': { key: 'first_goalscorer', label: 'First Goalscorer', marketType: 'player', oneWay: true, category: 'player' },
-    'player_shots': { key: 'player_shots', label: 'Player Shots', marketType: 'player', oneWay: true, category: 'player' },
-    'player_shots_on_target': { key: 'player_sot', label: 'Player Shots on Target', marketType: 'player', oneWay: true, category: 'player' },
-    'player_assists': { key: 'player_assists', label: 'Player Assists', marketType: 'player', oneWay: true, category: 'player' },
-    'player_tackles': { key: 'player_tackles', label: 'Player Tackles', marketType: 'player', oneWay: true, category: 'player' },
-    'player_passes': { key: 'player_passes', label: 'Player Passes', marketType: 'player', oneWay: true, category: 'player' },
-    'player_fouls': { key: 'player_fouls', label: 'Player Fouls', marketType: 'player', oneWay: true, category: 'player' },
-    'player_saves': { key: 'goalkeeper_saves', label: 'Goalkeeper Saves', marketType: 'player', oneWay: false, category: 'player' },
-    'anytime_card_receiver': { key: 'player_cards', label: 'Player Cards', marketType: 'player', oneWay: true, category: 'player' },
-  };
-
-  // Parse OpticOdds API response format
-  const parseOpticOdds = (oddsData, targetMarkets) => {
+  // Parse all markets from API (both player props and match markets)
+  const parseAllMarkets = (
+    bookmakerData,
+    bookmaker,
+    updatedAt,
+    targetMarkets
+  ) => {
     const props = [];
-    if (!oddsData || !oddsData.odds || !Array.isArray(oddsData.odds)) {
-      console.warn('[OpticOdds] No odds data or invalid format');
+    if (!Array.isArray(bookmakerData)) {
+      console.warn(
+        `[${bookmaker}] parseAllMarkets: bookmakerData is not an array`,
+        typeof bookmakerData
+      );
       return props;
     }
 
-    console.log(`[OpticOdds] Parsing ${oddsData.odds.length} odds entries`);
+    // Log all market names we receive
+    const allMarketNames = bookmakerData.map((m) => m.name);
+    console.log(`[${bookmaker}] All market names from API:`, allMarketNames);
+    console.log(
+      `[${bookmaker}] Target markets we're looking for:`,
+      Object.keys(targetMarkets)
+    );
 
-    // Group odds by market and line for easier processing
-    const oddsByGroup = {};
+    for (const market of bookmakerData) {
+      const marketInfo = targetMarkets[market.name];
+      if (!marketInfo) {
+        continue;
+      }
+      if (!market.odds) {
+        console.log(`[${bookmaker}] Market "${market.name}" has no odds`);
+        continue;
+      }
 
-    for (const odd of oddsData.odds) {
-      // Get bookmaker display name
-      const bookmaker = SPORTSBOOK_DISPLAY[odd.sportsbook] || odd.sportsbook;
+      const marketUpdatedAt = market.updatedAt || updatedAt;
+      const { key: marketKey, marketType, oneWay, category } = marketInfo;
 
-      // Get market info from our mapping
-      const marketInfo = OPTIC_MARKET_MAP[odd.market];
-      if (!marketInfo) continue; // Skip unmapped markets
+      for (const item of market.odds) {
+        // PLAYER PROPS - have 'label' field (player name)
+        if (marketType === "player") {
+          if (!item.label) continue;
 
-      // Check if this market is in our target markets
-      if (!targetMarkets.includes(marketInfo.key)) continue;
+          let playerName = item.label;
+          playerName = playerName.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+          if (!playerName) continue;
 
-      // Convert American odds to decimal
-      const decimalOdds = americanToDecimal(odd.price);
-      if (!decimalOdds || decimalOdds <= 1) continue;
+          const rawLine = parseFloat(item.hdp) || 0.5;
+          // Normalize line (1 → 1.5) for consistent matching across bookmakers
+          const line = normalizeLine(rawLine);
+          const overOdds = parseFloat(item.over);
+          const underOdds =
+            item.under && item.under !== "N/A" && item.under !== "NaN"
+              ? parseFloat(item.under)
+              : null;
 
-      const rawLine = odd.points !== null ? parseFloat(odd.points) : 0.5;
-      const line = normalizeLine(rawLine);
-      const isOver = odd.selection_line === 'over' || odd.name?.toLowerCase().includes('over');
-      const isUnder = odd.selection_line === 'under' || odd.name?.toLowerCase().includes('under');
-      const isHome = odd.normalized_selection?.includes('home') || odd.selection?.toLowerCase().includes('home');
-      const isAway = odd.normalized_selection?.includes('away') || odd.selection?.toLowerCase().includes('away');
+          if (isNaN(overOdds)) continue;
 
-      // Extract player name for player props
-      let playerName = null;
-      if (marketInfo.marketType === 'player' && odd.player_id) {
-        // Extract player name from the odd name (e.g., "M. Salah Over 0.5")
-        const nameParts = odd.name?.split(/\s+(over|under)\s*/i);
-        if (nameParts && nameParts[0]) {
-          playerName = nameParts[0].trim();
+          props.push({
+            player: playerName,
+            market: marketKey,
+            marketName: market.name,
+            marketType,
+            category,
+            line,
+            rawLine, // Keep original for display
+            overOdds,
+            underOdds,
+            bookmaker,
+            updatedAt: marketUpdatedAt,
+          });
+        }
+        // TOTALS MARKETS - have 'over' and 'under' fields
+        else if (marketType === "totals") {
+          const rawLine = parseFloat(item.hdp);
+          if (isNaN(rawLine)) continue;
+
+          // Normalize line (10 → 10.5) for consistent matching
+          const line = normalizeLine(rawLine);
+
+          const overOdds = parseFloat(item.over);
+          const underOdds =
+            item.under && item.under !== "N/A" && item.under !== "NaN"
+              ? parseFloat(item.under)
+              : null;
+
+          if (isNaN(overOdds)) continue;
+
+          // Use consistent label for grouping across bookmakers
+          // e.g., both "Match Shots on Target" (Bet365) and "Total Shots on Target" (Kambi)
+          // should group together using the label "Shots on Target"
+          const marketLabel = getMarketInfo(marketKey)?.label || market.name;
+
+          props.push({
+            player: marketLabel, // Use consistent label for grouping
+            market: marketKey,
+            marketName: market.name, // Keep original API name for reference
+            marketType,
+            category,
+            line,
+            rawLine, // Keep original for display
+            overOdds,
+            underOdds,
+            bookmaker,
+            updatedAt: marketUpdatedAt,
+          });
+        }
+        // SPREAD MARKETS - have 'home' and 'away' fields
+        else if (marketType === "spread") {
+          const rawLine = parseFloat(item.hdp);
+          if (isNaN(rawLine)) continue;
+
+          // Normalize line for consistent matching
+          const line = normalizeLine(rawLine);
+
+          const homeOdds = parseFloat(item.home);
+          const awayOdds = parseFloat(item.away);
+
+          if (isNaN(homeOdds) || isNaN(awayOdds)) continue;
+
+          // Use consistent label for grouping across bookmakers
+          const marketLabel = getMarketInfo(marketKey)?.label || market.name;
+
+          // For spreads, we treat home as "over" and away as "under" for consistency
+          props.push({
+            player: marketLabel, // Use consistent label for grouping
+            market: marketKey,
+            marketName: market.name, // Keep original API name for reference
+            marketType,
+            category,
+            line,
+            rawLine, // Keep original for display
+            overOdds: homeOdds, // Home team
+            underOdds: awayOdds, // Away team
+            bookmaker,
+            updatedAt: marketUpdatedAt,
+          });
         }
       }
-
-      // Create a grouping key for matching props
-      const groupKey = playerName
-        ? `${playerName}|${marketInfo.key}|${line}|${bookmaker}`
-        : `${marketInfo.label}|${marketInfo.key}|${line}|${bookmaker}`;
-
-      if (!oddsByGroup[groupKey]) {
-        oddsByGroup[groupKey] = {
-          player: playerName || marketInfo.label,
-          market: marketInfo.key,
-          marketName: odd.market,
-          marketType: marketInfo.marketType,
-          category: marketInfo.category,
-          line,
-          rawLine,
-          overOdds: null,
-          underOdds: null,
-          bookmaker,
-          updatedAt: odd.timestamp ? new Date(odd.timestamp * 1000).toISOString() : null,
-        };
-      }
-
-      // Assign odds based on type
-      if (isOver || (marketInfo.marketType === 'spread' && isHome)) {
-        oddsByGroup[groupKey].overOdds = decimalOdds;
-      } else if (isUnder || (marketInfo.marketType === 'spread' && isAway)) {
-        oddsByGroup[groupKey].underOdds = decimalOdds;
-      } else if (marketInfo.oneWay) {
-        // One-way markets (like goalscorer) - just use overOdds
-        oddsByGroup[groupKey].overOdds = decimalOdds;
-      }
     }
-
-    // Convert grouped odds to props array
-    for (const data of Object.values(oddsByGroup)) {
-      // Skip entries with no valid odds
-      if (data.overOdds === null && data.underOdds === null) continue;
-      props.push(data);
-    }
-
-    console.log(`[OpticOdds] Parsed ${props.length} props from odds data`);
     return props;
   };
 
@@ -846,47 +844,59 @@ export default function FootballEVScraping() {
     return null;
   };
 
-  // Fetch odds for a fixture from OpticOdds API (via proxy)
-  // Note: OpticOdds fetches all requested sportsbooks in one call
-  const fetchFixtureOdds = async (fixtureId, targetMarkets) => {
+  const fetchBookmakerOdds = async (eventId, bookmaker, targetMarkets, cachedData = null) => {
     try {
-      // Build URL with all sportsbooks
-      const url = new URL(`${getOpticApiProxy()}/fixtures/odds`);
-      url.searchParams.set('fixture_id', fixtureId);
+      let data;
 
-      // Add all sportsbook IDs as separate parameters
-      for (const bookId of OPTIC_SPORTSBOOK_IDS) {
-        url.searchParams.append('sportsbook', bookId);
+      // Use cached data if available, otherwise fetch from API
+      if (cachedData && cachedData.bookmakers && cachedData.bookmakers[bookmaker]) {
+        data = { bookmakers: { [bookmaker]: cachedData.bookmakers[bookmaker] } };
+        console.log(`[${bookmaker}] Using cached data`);
+      } else {
+        const url = `${ODDS_API_BASE}/odds?apiKey=${ODDS_API_KEY}&eventId=${eventId}&bookmakers=${bookmaker}`;
+        console.log(`[${bookmaker}] Fetching: ${url}`);
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          console.warn(`[${bookmaker}] Response not OK: ${response.status}`);
+          return { props: [], updatedAt: null };
+        }
+
+        data = await response.json();
       }
 
-      console.log(`[OpticOdds] Fetching odds for fixture ${fixtureId}`);
-
-      const response = await fetch(url.toString());
-
-      if (!response.ok) {
-        console.warn(`[OpticOdds] Response not OK: ${response.status}`);
+      if (!data?.bookmakers) {
+        console.warn(`[${bookmaker}] No bookmakers object in response`);
         return { props: [], updatedAt: null };
       }
 
-      const result = await response.json();
-      const oddsData = result.data?.[0] || null;
-
-      if (!oddsData || !oddsData.odds) {
-        console.warn(`[OpticOdds] No odds in response for fixture ${fixtureId}`);
+      if (!data.bookmakers[bookmaker]) {
+        console.warn(
+          `[${bookmaker}] Bookmaker not found in response. Available:`,
+          Object.keys(data.bookmakers)
+        );
         return { props: [], updatedAt: null };
       }
 
-      console.log(`[OpticOdds] Got ${oddsData.odds.length} odds for fixture ${fixtureId}`);
+      const markets = data.bookmakers[bookmaker];
 
-      // Parse odds using our OpticOdds parser
-      const props = parseOpticOdds(oddsData, targetMarkets);
-      const updatedAt = oddsData.odds?.[0]?.timestamp
-        ? new Date(oddsData.odds[0].timestamp * 1000).toISOString()
-        : new Date().toISOString();
+      const updatedAt =
+        Array.isArray(markets) && markets.length > 0
+          ? markets[0].updatedAt
+          : null;
+      const props = parseAllMarkets(
+        markets,
+        bookmaker,
+        updatedAt,
+        targetMarkets
+      );
+      console.log(
+        `[${bookmaker}] Parsed ${props.length} props (player + match)`
+      );
 
       return { props, updatedAt };
     } catch (err) {
-      console.error(`[OpticOdds] Fetch error for fixture ${fixtureId}:`, err);
+      console.error(`[${bookmaker}] Fetch error:`, err);
       return { props: [], updatedAt: null };
     }
   };
@@ -1079,9 +1089,9 @@ export default function FootballEVScraping() {
         );
         if (propsWithOdds.length < MIN_BOOKMAKERS) continue;
 
-        // IMPROVED: Check if any book has both over AND under
-        // Prioritize Pinnacle as the sharp line (OpticOdds has Pinnacle but not Kambi)
-        const sharpBookPriority = ["Pinnacle", "Betano", "DraftKings", "FanDuel"];
+        // IMPROVED: Check if any book has both over AND under (Kambi often does)
+        // Prioritize Kambi, then Pinnacle, then any book with both sides
+        const sharpBookPriority = ["Kambi", "Pinnacle"];
         const propsWithBothSides = group.props.filter(
           (p) => p.overOdds && !isNaN(p.overOdds) && p.underOdds && !isNaN(p.underOdds)
         );
@@ -1425,14 +1435,52 @@ export default function FootballEVScraping() {
     console.log(
       `\n========== ANALYZING MATCH: ${match.home} vs ${match.away} ==========`
     );
-    console.log(`[Match] ID: ${match.id}, League: ${match.league}`);
+    console.log(`[Match] ID: ${match.id}, League: ${match.league?.name}`);
     console.log(`[Match] Selected markets:`, selectedMarkets);
 
-    // OpticOdds fetches all bookmakers in one API call
-    if (onProgress) onProgress(1, 'Fetching odds from OpticOdds...', 'API');
+    // Build target markets from current selection
+    const targetMarkets = buildTargetMarkets(selectedMarkets);
+    console.log(`[Match] Target markets built:`, Object.keys(targetMarkets));
 
-    // Fetch all odds for this fixture from OpticOdds
-    const { props: allProps } = await fetchFixtureOdds(match.id, selectedMarkets);
+    // First, try to get cached odds for this event (saves API calls)
+    const cachedData = await fetchCachedOdds(match.id);
+    const usingCache = cachedData && cachedData.bookmakers && Object.keys(cachedData.bookmakers).length > 0;
+
+    const allProps = [];
+
+    if (usingCache) {
+      const cachedBookmakers = Object.keys(cachedData.bookmakers).length;
+      console.log(`[Match ${match.id}] USING CACHE with ${cachedBookmakers} bookmakers`);
+      // When using cache, process all bookmakers instantly
+      if (onProgress) onProgress(ALL_BOOKMAKERS.length, 'Using cached data', 'CACHE');
+
+      for (const bookmaker of ALL_BOOKMAKERS) {
+        const { props } = await fetchBookmakerOdds(
+          match.id,
+          bookmaker,
+          targetMarkets,
+          cachedData
+        );
+        allProps.push(...props);
+      }
+    } else {
+      console.log(`[Match ${match.id}] NO CACHE - using direct API`);
+      // No cache - fetch from API with progress animation
+      for (let i = 0; i < ALL_BOOKMAKERS.length; i++) {
+        const bookmaker = ALL_BOOKMAKERS[i];
+        if (onProgress) onProgress(i + 1, `Fetching ${bookmaker}...`, 'API');
+        const { props } = await fetchBookmakerOdds(
+          match.id,
+          bookmaker,
+          targetMarkets,
+          null
+        );
+        allProps.push(...props);
+        // Add delay between API requests
+        if (i < ALL_BOOKMAKERS.length - 1)
+          await new Promise((r) => setTimeout(r, 200));
+      }
+    }
 
     console.log(`[Match] Total props collected: ${allProps.length}`);
 
@@ -1506,58 +1554,20 @@ export default function FootballEVScraping() {
     setError(null);
 
     try {
+      const toDate = getNext48HoursDate();
       const allMatches = [];
 
-      // Fetch fixtures from all selected leagues using OpticOdds API (via proxy)
+      // Fetch matches from all selected leagues
       for (const leagueSlug of selectedLeagues) {
-        // Convert our league slug to OpticOdds format
-        const opticLeague = SOCCER_LEAGUES[leagueSlug] || leagueSlug;
-
+        const url = `${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=football&league=${leagueSlug}&status=pending&to=${toDate}`;
         try {
-          const url = new URL(`${getOpticApiProxy()}/fixtures`);
-          url.searchParams.set('sport', 'soccer');
-          url.searchParams.set('league', opticLeague);
-          url.searchParams.set('status', 'unplayed');
-
-          console.log(`[OpticOdds] Fetching fixtures for ${opticLeague}`);
-
-          const response = await fetch(url.toString());
-
+          const response = await fetch(url);
           if (response.ok) {
-            const result = await response.json();
-            const fixtures = result.data || [];
-
-            // Only include matches in the next 24 hours
-            const now = new Date();
-            const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-
-            // Transform OpticOdds fixtures to our internal format
-            for (const fixture of fixtures) {
-              const fixtureDate = new Date(fixture.start_date);
-
-              // Skip fixtures not within next 24 hours
-              if (fixtureDate < now || fixtureDate > next24Hours) {
-                continue;
-              }
-
-              allMatches.push({
-                id: fixture.id,
-                home: fixture.home_team_display || fixture.home_team,
-                away: fixture.away_team_display || fixture.away_team,
-                date: fixture.start_date,
-                league: opticLeague,
-                leagueName: fixture.league,
-                status: fixture.status,
-                isLive: fixture.is_live,
-              });
-            }
-
-            console.log(`[OpticOdds] Got ${fixtures.length} fixtures for ${opticLeague}, ${allMatches.length} within 24h`);
-          } else {
-            console.warn(`[OpticOdds] Failed to fetch ${opticLeague}: ${response.status}`);
+            const data = await response.json();
+            allMatches.push(...data);
           }
         } catch (err) {
-          console.warn(`[OpticOdds] Failed to fetch ${leagueSlug}:`, err);
+          console.warn(`Failed to fetch ${leagueSlug}:`, err);
         }
         await new Promise((r) => setTimeout(r, 100)); // Rate limit
       }
@@ -1570,7 +1580,7 @@ export default function FootballEVScraping() {
         allMatches.length,
         "matches from",
         selectedLeagues.length,
-        "leagues via OpticOdds"
+        "leagues"
       );
 
       setMatches(allMatches);
