@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 
 // TOGGLE: Set to false to re-enable odds-notifyer socket connection
-const SOCKET_DISABLED = true;
+const SOCKET_DISABLED = false;
 
 const SOCKET_URL = import.meta.env.VITE_CACHE_SERVER_URL || 'https://odds-notifyer-server.onrender.com';
 

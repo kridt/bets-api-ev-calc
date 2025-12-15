@@ -831,24 +831,18 @@ export default function NBAEVScraping() {
 
   // Fetch odds for a single bookmaker
   // Returns { props: [...], updatedAt: "ISO timestamp" }
+  // Now only uses cached data (direct API calls fail due to CORS)
   const fetchBookmakerOdds = async (eventId, bookmaker, cachedData = null) => {
     try {
       let data;
 
-      // Use cached data if available, otherwise fetch from API
+      // Use cached data if available
       if (cachedData && cachedData.bookmakers && cachedData.bookmakers[bookmaker]) {
         data = { bookmakers: { [bookmaker]: cachedData.bookmakers[bookmaker] } };
         console.log(`[${bookmaker}] Using cached data`);
       } else {
-        const url = `${ODDS_API_BASE}/odds?apiKey=${ODDS_API_KEY}&eventId=${eventId}&bookmakers=${bookmaker}`;
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          console.warn(`[${bookmaker}] API error:`, response.status);
-          return { props: [], updatedAt: null };
-        }
-
-        data = await response.json();
+        // No cached data for this bookmaker - skip (can't use direct API due to CORS)
+        return { props: [], updatedAt: null };
       }
 
       // Check for bookmaker data in the new structure
@@ -1207,20 +1201,10 @@ export default function NBAEVScraping() {
         allProps.push(...props);
       }
     } else {
-      console.log(`[Match ${match.id}] NO CACHE - using direct API`);
-      // No cache - fetch from API with progress animation
-      for (let i = 0; i < ALL_BOOKMAKERS.length; i++) {
-        const bookmaker = ALL_BOOKMAKERS[i];
-        if (onProgress) onProgress(i + 1, `Fetching ${bookmaker}...`, 'API');
-
-        const { props } = await fetchBookmakerOdds(match.id, bookmaker, null);
-        allProps.push(...props);
-
-        // Add delay between API requests
-        if (i < ALL_BOOKMAKERS.length - 1) {
-          await new Promise(r => setTimeout(r, 200));
-        }
-      }
+      console.log(`[Match ${match.id}] NO CACHE - odds not yet available`);
+      // No cache available - can't use direct API due to CORS
+      // The cache server will fetch odds periodically
+      if (onProgress) onProgress(ALL_BOOKMAKERS.length, 'No cached odds (waiting for server)', 'WAITING');
     }
 
     // Group and match props
@@ -1299,84 +1283,43 @@ export default function NBAEVScraping() {
   };
 
   // Refresh and re-analyze all matches
+  // Fetches from the cache server (which has CORS enabled) instead of directly from odds-api.io
   const refreshAll = async () => {
     setLoading(true);
     setMatchData({});
     setError(null);
 
     try {
-      const toDate = getNext24HoursDate();
-      const { from: yesterdayFrom, to: yesterdayTo } = getYesterdayDates();
+      // Fetch NBA events from cache server (which proxies to odds-api.io)
+      console.log('[NBA EV] Fetching from cache server:', CACHE_SERVER_URL);
+      const response = await fetch(`${CACHE_SERVER_URL}/api/nba/events`);
 
-      // Fetch pending, live, and yesterday's matches in parallel
-      // Try both "completed" and "finished" statuses for yesterday's games
-      const [pendingResponse, liveResponse, yesterdayResponse1, yesterdayResponse2] = await Promise.all([
-        fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=pending&to=${toDate}`),
-        fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=live`),
-        fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=completed&from=${yesterdayFrom}&to=${yesterdayTo}`),
-        fetch(`${ODDS_API_BASE}/events?apiKey=${ODDS_API_KEY}&sport=basketball&league=usa-nba&status=finished&from=${yesterdayFrom}&to=${yesterdayTo}`)
-      ]);
-
-      if (!pendingResponse.ok) {
-        throw new Error(`API error: ${pendingResponse.status}`);
+      if (!response.ok) {
+        throw new Error(`Cache server error: ${response.status}`);
       }
 
-      const pendingData = await pendingResponse.json();
-      let liveData = [];
+      const data = await response.json();
+      const pendingData = data.events || [];
 
-      // Live endpoint might fail if no live matches, that's ok
-      if (liveResponse.ok) {
-        liveData = await liveResponse.json();
-        // Filter to only matches in first 20 minutes (player props still valuable early in game)
-        liveData = liveData.filter(match => {
-          const now = new Date();
-          const matchDate = new Date(match.date);
-          const diffMinutes = (now - matchDate) / (1000 * 60);
-          return diffMinutes <= 20;
-        });
-        // Mark as live
-        liveData = liveData.map(m => ({ ...m, isLive: true }));
-      }
+      console.log('[NBA EV] Received', pendingData.length, 'matches from cache server');
 
-      // Detect back-to-back teams from yesterday's games
-      const teamsPlayedYesterday = new Set();
+      // Filter to upcoming matches (next 7 days as per cache server config)
+      const now = new Date();
+      const upcomingMatches = pendingData.filter(match => {
+        const matchDate = new Date(match.date);
+        return matchDate > now;
+      });
 
-      // Try completed status
-      if (yesterdayResponse1.ok) {
-        const data1 = await yesterdayResponse1.json();
-        for (const match of data1) {
-          teamsPlayedYesterday.add(match.home);
-          teamsPlayedYesterday.add(match.away);
-        }
-        console.log('[NBA EV] Yesterday games (completed):', data1.length);
-      }
+      // Sort by date
+      upcomingMatches.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      // Try finished status
-      if (yesterdayResponse2.ok) {
-        const data2 = await yesterdayResponse2.json();
-        for (const match of data2) {
-          teamsPlayedYesterday.add(match.home);
-          teamsPlayedYesterday.add(match.away);
-        }
-        console.log('[NBA EV] Yesterday games (finished):', data2.length);
-      }
-
-      if (teamsPlayedYesterday.size > 0) {
-        setB2bTeams(teamsPlayedYesterday);
-        console.log('[NBA EV] Teams played yesterday:', Array.from(teamsPlayedYesterday));
-      }
-
-      // Combine: live matches first, then pending
-      const allMatches = [...liveData, ...pendingData];
-      console.log('[NBA EV] Received', pendingData.length, 'pending +', liveData.length, 'live matches');
-
-      setMatches(allMatches);
-      setLastUpdated(new Date());
+      setMatches(upcomingMatches);
+      setLastUpdated(data.lastUpdate ? new Date(data.lastUpdate) : new Date());
       setLoading(false);
 
       // Auto-analyze all matches
-      if (allMatches.length > 0) {
-        await analyzeAllMatches(allMatches);
+      if (upcomingMatches.length > 0) {
+        await analyzeAllMatches(upcomingMatches);
       }
     } catch (err) {
       console.error('[NBA EV] Error:', err);
