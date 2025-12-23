@@ -1121,4 +1121,258 @@ router.get('/football/team-fixtures/:teamName', async (req, res) => {
   }
 });
 
+// ============================================
+// TELEGRAM NOTIFICATIONS API
+// ============================================
+
+// Import telegram notifier
+let telegramNotifier;
+try {
+  telegramNotifier = require('../services/telegramNotifier');
+} catch (error) {
+  console.warn('[API] Telegram notifier not loaded:', error.message);
+}
+
+/**
+ * GET /api/telegram/config
+ * Get current Telegram notification configuration
+ */
+router.get('/telegram/config', (req, res) => {
+  if (!telegramNotifier) {
+    return res.status(503).json({
+      success: false,
+      error: 'Telegram notifier not available'
+    });
+  }
+
+  res.json({
+    success: true,
+    data: telegramNotifier.getConfig()
+  });
+});
+
+/**
+ * POST /api/telegram/config
+ * Update Telegram notification configuration
+ * Body: { minEV, maxOdds, sports, enabled, cooldownMinutes }
+ */
+router.post('/telegram/config', (req, res) => {
+  if (!telegramNotifier) {
+    return res.status(503).json({
+      success: false,
+      error: 'Telegram notifier not available'
+    });
+  }
+
+  try {
+    const newConfig = telegramNotifier.updateConfig(req.body);
+    res.json({
+      success: true,
+      data: newConfig
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/telegram/test
+ * Send a test message to Telegram
+ */
+router.post('/telegram/test', async (req, res) => {
+  if (!telegramNotifier) {
+    return res.status(503).json({
+      success: false,
+      error: 'Telegram notifier not available'
+    });
+  }
+
+  try {
+    const success = await telegramNotifier.sendTestMessage();
+    res.json({
+      success,
+      message: success ? 'Test message sent!' : 'Failed to send test message'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/telegram/send
+ * Manually send a custom message to Telegram
+ * Body: { message }
+ */
+router.post('/telegram/send', async (req, res) => {
+  if (!telegramNotifier) {
+    return res.status(503).json({
+      success: false,
+      error: 'Telegram notifier not available'
+    });
+  }
+
+  try {
+    const { message } = req.body;
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Message is required'
+      });
+    }
+
+    const success = await telegramNotifier.sendTelegramMessage(message);
+    res.json({
+      success,
+      message: success ? 'Message sent!' : 'Failed to send message'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Import telegram bet storage and poller
+let telegramBetStorage;
+let telegramPoller;
+try {
+  telegramBetStorage = require('../services/telegramBetStorage');
+  telegramPoller = require('../services/telegramCallbackPoller');
+} catch (error) {
+  console.warn('[API] Telegram bet storage/poller not loaded:', error.message);
+}
+
+/**
+ * GET /api/telegram/bets
+ * Get recent telegram bets
+ * Query params: days (default 7)
+ */
+router.get('/telegram/bets', async (req, res) => {
+  if (!telegramBetStorage) {
+    return res.status(503).json({
+      success: false,
+      error: 'Telegram bet storage not available'
+    });
+  }
+
+  try {
+    const { days = 7 } = req.query;
+    const bets = await telegramBetStorage.getRecentBets(parseInt(days));
+    res.json({
+      success: true,
+      count: bets.length,
+      data: bets
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/telegram/tracked
+ * Get tracked bets
+ */
+router.get('/telegram/tracked', async (req, res) => {
+  if (!telegramBetStorage) {
+    return res.status(503).json({
+      success: false,
+      error: 'Telegram bet storage not available'
+    });
+  }
+
+  try {
+    const bets = await telegramBetStorage.getTrackedBets();
+    res.json({
+      success: true,
+      count: bets.length,
+      data: bets
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/telegram/stats
+ * Get bet statistics
+ */
+router.get('/telegram/stats', async (req, res) => {
+  if (!telegramBetStorage) {
+    return res.status(503).json({
+      success: false,
+      error: 'Telegram bet storage not available'
+    });
+  }
+
+  try {
+    const stats = await telegramBetStorage.getBetStats();
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/telegram/poller-status
+ * Get Telegram callback poller status
+ */
+router.get('/telegram/poller-status', (req, res) => {
+  if (!telegramPoller) {
+    return res.status(503).json({
+      success: false,
+      error: 'Telegram poller not available'
+    });
+  }
+
+  res.json({
+    success: true,
+    data: telegramPoller.getStatus()
+  });
+});
+
+/**
+ * POST /api/telegram/cleanup
+ * Clean up old dismissed bets
+ */
+router.post('/telegram/cleanup', async (req, res) => {
+  if (!telegramBetStorage) {
+    return res.status(503).json({
+      success: false,
+      error: 'Telegram bet storage not available'
+    });
+  }
+
+  try {
+    await telegramBetStorage.cleanOldBets();
+    res.json({
+      success: true,
+      message: 'Old bets cleaned up'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

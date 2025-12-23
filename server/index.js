@@ -10,6 +10,7 @@ const cacheRoutes = require('./routes/cache');
 const { startAutoTracker } = require('./services/autoEVTracker');
 const { startCacheScheduler } = require('./schedulers/cacheScheduler');
 const { initWebSocket } = require('./websocket');
+const { startPolling: startTelegramPoller } = require('./services/telegramCallbackPoller');
 
 const app = express();
 const server = http.createServer(app);
@@ -97,6 +98,9 @@ server.listen(PORT, () => {
 
   // Start cache scheduler (refreshes NBA/Football every 5 minutes)
   startCacheScheduler();
+
+  // Start Telegram callback poller (handles button presses)
+  startTelegramPoller(3000);
 });
 
 // Graceful shutdown
