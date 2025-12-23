@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "dev:vercel": "vercel dev",
     "start": "node server/index.js",
-    "build:render": "cd server && rm -rf node_modules && npm install",
+    "build:render": "echo '=== Installing root deps ===' && npm install --production=false && echo '=== Installing server deps ===' && cd server && npm install && echo '=== Listing server node_modules ===' && ls node_modules | head -20",
     "start:render": "NODE_ENV=production node server/index.js"
   },
   "dependencies": {
