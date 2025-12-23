@@ -28,3 +28,19 @@ services:
         sync: false
       - key: SUPABASE_KEY
         sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: TELEGRAM_ENABLED
+        value: "true"
+      - key: TELEGRAM_MIN_EV
+        value: "8.0"
+      - key: TELEGRAM_MAX_ODDS
+        value: "3.5"
+      - key: TELEGRAM_BOOKMAKERS
+        value: "bet365"
+      - key: TELEGRAM_SPORTS
+        value: "NBA"
+      - key: BALLDONTLIE_API_KEY
+        sync: false
