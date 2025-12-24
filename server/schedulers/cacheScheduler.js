@@ -4,6 +4,7 @@
 
 const { buildNBACache } = require('../services/nbaCacheBuilder');
 const { buildFootballCache } = require('../services/footballCacheBuilder');
+const { runNBAEvFinder } = require('../services/nbaOddsApiEvFinder');
 const evCache = require('../services/evCache');
 
 // Configuration
@@ -15,14 +16,27 @@ let nbaInterval = null;
 let footballInterval = null;
 let isRunning = false;
 
-// Refresh NBA cache
+// Refresh NBA cache (runs both OpticOdds cache builder and odds-api.io EV finder)
 const refreshNBA = async () => {
   const startTime = Date.now();
   console.log('[CacheScheduler] Refreshing NBA cache...');
 
   try {
+    // Run the OpticOdds cache builder for frontend display
     const result = await buildNBACache();
-    console.log(`[CacheScheduler] NBA refresh complete: ${result.evBets.length} EV bets found in ${result.duration}ms`);
+    console.log(`[CacheScheduler] NBA OpticOdds cache: ${result.evBets.length} EV bets in ${result.duration}ms`);
+
+    // Also run the odds-api.io EV finder (has real Bet365 odds!)
+    // This one sends Telegram notifications for 8%+ EV bets
+    try {
+      const oddsApiResult = await runNBAEvFinder();
+      if (oddsApiResult.stats) {
+        console.log(`[CacheScheduler] NBA odds-api.io: ${oddsApiResult.stats.evBets} EV bets (8%+) in ${oddsApiResult.stats.duration}s`);
+      }
+    } catch (oddsApiErr) {
+      console.error('[CacheScheduler] NBA odds-api.io failed:', oddsApiErr.message);
+    }
+
     return result;
   } catch (err) {
     console.error('[CacheScheduler] NBA refresh failed:', err.message);

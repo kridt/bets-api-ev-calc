@@ -24,10 +24,11 @@ try {
 
 // Notification criteria
 const config = {
-  minEV: parseFloat(process.env.TELEGRAM_MIN_EV) || 8.0,
+  minEV: parseFloat(process.env.TELEGRAM_MIN_EV) || 1.0,
   maxOdds: parseFloat(process.env.TELEGRAM_MAX_ODDS) || 3.5,
-  bookmakers: (process.env.TELEGRAM_BOOKMAKERS || 'bet365').split(',').map(s => s.trim().toLowerCase()),
-  sports: (process.env.TELEGRAM_SPORTS || 'NBA').split(',').map(s => s.trim()),
+  // Danish market bookmakers for both NBA and Football
+  bookmakers: (process.env.TELEGRAM_BOOKMAKERS || 'bet365,betano,unibet dk,pinnacle').split(',').map(s => s.trim().toLowerCase()),
+  sports: (process.env.TELEGRAM_SPORTS || 'NBA,Football,Premier League').split(',').map(s => s.trim()),
   enabled: process.env.TELEGRAM_ENABLED !== 'false',
   cooldownMinutes: parseInt(process.env.TELEGRAM_COOLDOWN) || 10,
   includeStats: process.env.TELEGRAM_INCLUDE_STATS !== 'false',
@@ -35,6 +36,7 @@ const config = {
 
 // Map market names to balldontlie stat types
 const MARKET_TO_STAT = {
+  // Standard market names
   'player_points': 'points',
   'points': 'points',
   'Points': 'points',
@@ -63,19 +65,57 @@ const MARKET_TO_STAT = {
   'Rebs+Asts': 'rebounds_assists',
   'player_points_+_rebounds_+_assists': 'pra',
   'Pts+Rebs+Asts': 'pra',
+  'PRA': 'pra',
   'player_steals_+_blocks': 'steals_blocks',
   'Steals+Blocks': 'steals_blocks',
+  // odds-api.io market names (NBA)
+  'Points O/U': 'points',
+  'Rebounds O/U': 'rebounds',
+  'Assists O/U': 'assists',
+  'Threes Made O/U': 'threes',
+  'Steals O/U': 'steals',
+  'Blocks O/U': 'blocks',
+  'Points & Assists O/U': 'points_assists',
+  'Points & Rebounds O/U': 'points_rebounds',
+  'Assists & Rebounds O/U': 'rebounds_assists',
+  'Points, Assists & Rebounds O/U': 'pra',
+  'Steals & Blocks O/U': 'steals_blocks',
 };
 
 /**
- * Generate unique key for a bet
+ * Generate a short hash from a string (for Telegram callback data which has 64 byte limit)
+ */
+const shortHash = (str) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Convert to base36 for shorter representation, take absolute value
+  return Math.abs(hash).toString(36);
+};
+
+/**
+ * Generate unique key for a bet (full key for storage)
  */
 const getBetKey = (bet) => {
   return `${bet.matchId}|${bet.player}|${bet.market}|${bet.line}|${bet.betType}`;
 };
 
 /**
- * Fetch player stats for the bet
+ * Generate short callback-safe key for Telegram buttons (max 64 bytes)
+ */
+const getShortBetKey = (bet) => {
+  const fullKey = getBetKey(bet);
+  return shortHash(fullKey);
+};
+
+// In-memory mapping of short keys to full bet keys (for callback handling)
+const shortToFullKeyMap = new Map();
+
+/**
+ * Fetch player stats for the bet with timeout
  */
 const fetchPlayerStats = async (playerName, market, line, betType) => {
   if (!balldontlieService || !config.includeStats) {
@@ -89,7 +129,12 @@ const fetchPlayerStats = async (playerName, market, line, betType) => {
   }
 
   try {
-    const hitRateData = await balldontlieService.calculateHitRate(playerName, statType, line, 10);
+    // Add 15 second timeout to prevent hanging on unknown players
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Stats fetch timeout')), 15000)
+    );
+    const statsPromise = balldontlieService.calculateHitRate(playerName, statType, line, 10);
+    const hitRateData = await Promise.race([statsPromise, timeoutPromise]);
 
     const last5 = hitRateData.values.slice(0, 5);
     const last5Avg = last5.length > 0 ? last5.reduce((a, b) => a + b, 0) / last5.length : 0;
@@ -225,6 +270,8 @@ const createInlineKeyboard = (betKey) => {
  * Send message to Telegram with optional inline keyboard
  */
 const sendTelegramMessage = async (text, keyboard = null) => {
+  console.log('[Telegram] sendTelegramMessage called');
+
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.warn('[Telegram] Bot token or chat ID not configured');
     return { success: false, messageId: null };
@@ -242,6 +289,7 @@ const sendTelegramMessage = async (text, keyboard = null) => {
       body.reply_markup = keyboard;
     }
 
+    console.log('[Telegram] Sending to API...');
     const response = await fetch(`${TELEGRAM_API}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -249,12 +297,14 @@ const sendTelegramMessage = async (text, keyboard = null) => {
     });
 
     const result = await response.json();
+    console.log('[Telegram] API response received');
 
     if (!result.ok) {
       console.error('[Telegram] Failed to send message:', result.description);
       return { success: false, messageId: null, error: result.description };
     }
 
+    console.log('[Telegram] ✅ Message sent, ID:', result.result.message_id);
     return { success: true, messageId: result.result.message_id };
   } catch (error) {
     console.error('[Telegram] Error sending message:', error.message);
@@ -373,8 +423,12 @@ const processEVBets = async (evBets, sport = 'NBA') => {
 
     console.log(`[Telegram] Preparing alert: ${bet.player} ${bet.market} ${bet.betType} ${bet.line} (${bet.evPercent.toFixed(1)}% EV)`);
 
+    // Generate short key for Telegram callback buttons (64 byte limit)
+    const shortKey = getShortBetKey(bet);
+    shortToFullKeyMap.set(shortKey, betKey);
+
     const { text, stats } = await formatBetMessage(bet, sport);
-    const keyboard = createInlineKeyboard(betKey);
+    const keyboard = createInlineKeyboard(shortKey);
     const { success, messageId } = await sendTelegramMessage(text, keyboard);
 
     if (success) {
@@ -407,10 +461,13 @@ const processEVBets = async (evBets, sport = 'NBA') => {
  */
 const handleCallback = async (callbackQuery) => {
   const { id: callbackId, data, message } = callbackQuery;
-  const [action, ...betKeyParts] = data.split(':');
-  const betKey = betKeyParts.join(':');
+  const [action, ...shortKeyParts] = data.split(':');
+  const shortKey = shortKeyParts.join(':');
 
-  console.log(`[Telegram] Callback: ${action} for ${betKey}`);
+  // Look up full key from short key mapping (or use short key if not found)
+  const betKey = shortToFullKeyMap.get(shortKey) || shortKey;
+
+  console.log(`[Telegram] Callback: ${action} for ${shortKey} (full: ${betKey.substring(0, 30)}...)`);
 
   let responseText = '';
   let newStatus = '';
@@ -467,9 +524,9 @@ const handleCallback = async (callbackQuery) => {
       newKeyboard = {
         inline_keyboard: [
           [
-            { text: '🏆 Won', callback_data: `won:${betKey}` },
-            { text: '💔 Lost', callback_data: `lost:${betKey}` },
-            { text: '➖ Push', callback_data: `push:${betKey}` }
+            { text: '🏆 Won', callback_data: `won:${shortKey}` },
+            { text: '💔 Lost', callback_data: `lost:${shortKey}` },
+            { text: '➖ Push', callback_data: `push:${shortKey}` }
           ]
         ]
       };

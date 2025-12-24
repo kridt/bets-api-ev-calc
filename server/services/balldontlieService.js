@@ -24,11 +24,63 @@ async function makeRequest(endpoint, params = {}) {
 }
 
 /**
- * Search for a player by name
+ * Search for a player by name with smart fallbacks
+ * Tries: full name -> first name -> last name -> name parts
  */
 async function searchPlayer(name) {
-  const data = await makeRequest('players', { search: name });
-  return data.data;
+  // Try full name first
+  let data = await makeRequest('players', { search: name });
+  if (data.data && data.data.length > 0) {
+    return data.data;
+  }
+
+  // Split name into parts
+  const nameParts = name.trim().split(/\s+/);
+
+  if (nameParts.length >= 2) {
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ');
+
+    // Try first name only
+    data = await makeRequest('players', { search: firstName });
+    if (data.data && data.data.length > 0) {
+      // Filter to find best match for last name
+      const exactMatch = data.data.find(p =>
+        p.last_name.toLowerCase() === lastName.toLowerCase() ||
+        lastName.toLowerCase().includes(p.last_name.toLowerCase()) ||
+        p.last_name.toLowerCase().includes(lastName.split('-')[0].toLowerCase())
+      );
+      if (exactMatch) {
+        return [exactMatch];
+      }
+      // If no exact last name match, try to find partial match
+      const partialMatch = data.data.find(p =>
+        lastName.toLowerCase().includes(p.last_name.split('-')[0].toLowerCase()) ||
+        p.last_name.toLowerCase().split('-').some(part => lastName.toLowerCase().includes(part))
+      );
+      if (partialMatch) {
+        return [partialMatch];
+      }
+    }
+
+    // Try last name only (for hyphenated names, try first part)
+    const lastNameParts = lastName.split('-');
+    for (const lastPart of lastNameParts) {
+      data = await makeRequest('players', { search: lastPart });
+      if (data.data && data.data.length > 0) {
+        // Filter to find match with first name
+        const exactMatch = data.data.find(p =>
+          p.first_name.toLowerCase() === firstName.toLowerCase()
+        );
+        if (exactMatch) {
+          return [exactMatch];
+        }
+      }
+    }
+  }
+
+  // Return empty if nothing found
+  return [];
 }
 
 /**
